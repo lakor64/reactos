@@ -357,6 +357,8 @@ function(spec2def _dllname _spec_file)
 
     if(__spec2def_VERSION)
         set(__version_arg "--version=0x${__spec2def_VERSION}")
+	else()
+        set(__version_arg "--version=${TARGET_NT}")
     endif()
 
     # Generate exports def and C stubs file for the DLL
