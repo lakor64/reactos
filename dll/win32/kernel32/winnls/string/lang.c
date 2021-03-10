@@ -1266,8 +1266,43 @@ GetLocaleInfoEx(
   _Out_writes_opt_(cchData) LPWSTR lpLCData,
   _In_ int cchData)
 {
-    TRACE( "GetLocaleInfoEx not implemented (lcid=%s,lctype=0x%x,%s,%d)\n", debugstr_w(lpLocaleName), LCType, debugstr_w(lpLCData), cchData );
-    return 0;
+	if (!lpLocaleName)
+	{
+		SetLastError(ERROR_INVALID_PARAMETER);
+		return FALSE;
+	}
+
+	if (cchData > 0 && !lpLCData)
+	{
+		SetLastError(ERROR_INVALID_PARAMETER);
+		return FALSE;
+	}
+
+    LCID lcid = LocaleNameToLCID(lpLocaleName, 0);
+
+    if (!lcid) return 0;
+
+    /* special handling for neutral locale names */
+    if (lpLocaleName && wcslen(lpLocaleName) == 2)
+    {
+        switch (LOWORD(LCType))
+        {
+        case LOCALE_SNAME:
+            if (cchData && cchData < 3)
+            {
+                SetLastError(ERROR_INSUFFICIENT_BUFFER);
+                return 0;
+            }
+            if (cchData)
+				wcscpy(lpLCData, lpLocaleName);
+            return 3;
+        case LOCALE_SPARENT:
+            if (cchData)
+				lpLCData[0] = 0;
+            return 1;
+        }
+    }
+    return GetLocaleInfoW(lcid, LCType, lpLCData, cchData);
 }
 
 BOOL 
