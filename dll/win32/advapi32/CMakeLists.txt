@@ -1,5 +1,7 @@
 
-add_subdirectory(advapi32_vista)
+if (TARGET_NT LESS 0x600)
+	add_subdirectory(advapi32_vista)
+endif()
 
 spec2def(advapi32.dll advapi32.spec ADD_IMPORTLIB)
 add_definitions(-D_ADVAPI32_)
@@ -60,9 +62,24 @@ add_library(advapi32 MODULE
     advapi32.rc
     ${CMAKE_CURRENT_BINARY_DIR}/advapi32.def)
 
+if (TARGET_NT GREATER_EQUAL 0x600)
+	list(APPEND SOURCE
+		advapi32_vista/RegDeleteTree.c
+		advapi32_vista/RegSetKeyValue.c
+		advapi32_vista/RegLoadMUIString.c
+	)
+endif()
+
 set_module_type(advapi32 win32dll UNICODE ENTRYPOINT DllMain 12)
 target_link_libraries(advapi32 cryptlib wine ${PSEH_LIB})
 add_delay_importlibs(advapi32 secur32)
-add_importlibs(advapi32 advapi32_vista rpcrt4 kernel32 ntdll)
+
+if (TARGET_NT LESS 0x600)
+	add_importlibs(advapi32 advapi32_vista rpcrt4 kernel32 ntdll)
+else()
+	add_importlibs(advapi32 rpcrt4 kernel32 ntdll)
+	add_dependencies(advapi32 psdk)
+endif()
+
 add_pch(advapi32 advapi32.h "${PCH_SKIP_SOURCE}")
 add_cd_file(TARGET advapi32 DESTINATION reactos/system32 FOR all)

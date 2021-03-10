@@ -1,5 +1,7 @@
 
-add_subdirectory(kernel32_vista)
+if (TARGET_NT LESS 0x600)
+	add_subdirectory(kernel32_vista)
+endif()
 
 add_definitions(-D_KERNEL32_)
 include_directories(${REACTOS_SOURCE_DIR}/sdk/include/reactos/subsys)
@@ -104,6 +106,15 @@ elseif(ARCH STREQUAL "arm")
     list(APPEND ASM_SOURCE
         client/arm/fiber.S
         client/arm/thread.S)
+endif()
+
+if (TARGET_NT GREATER_EQUAL 0x600)
+	list(APPEND SOURCE
+		kernel32_vista/GetFileInformationByHandleEx.c
+		kernel32_vista/GetTickCount64.c
+		kernel32_vista/InitOnceExecuteOnce.c
+		kernel32_vista/sync.c
+		kernel32_vista/vista.c)
 endif()
 
 add_asm_files(kernel32_asm ${ASM_SOURCE})

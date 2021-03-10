@@ -1,5 +1,7 @@
 
-add_subdirectory(nt_0600)
+if (TARGET_NT LESS 0x600)
+	add_subdirectory(nt_0600)
+endif()
 
 spec2def(ntdll.dll def/ntdll.spec ADD_IMPORTLIB)
 
@@ -68,6 +70,16 @@ target_link_libraries(ntdll rtl ntdllsys libcntpr uuid ${PSEH_LIB})
 
 if (STACK_PROTECTOR)
     target_sources(ntdll PRIVATE $<TARGET_OBJECTS:gcc_ssp_nt>)
+endif()
+
+if (TARGET_NT GREATER_EQUAL 0x600)
+	add_dependencies(ntdll psdk)
+
+	if(ARCH STREQUAL "arm")
+		target_link_libraries(ntdll chkstk)
+	endif()
+
+	target_link_libraries(ntdll rtl_vista)
 endif()
 
 add_pch(ntdll include/ntdll.h "${PCH_SKIP_SOURCE}")
