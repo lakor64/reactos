@@ -6,8 +6,10 @@
 @ stdcall RegCreateKeyExW() advapi32.RegCreateKeyExW
 @ stdcall RegDeleteKeyExA() advapi32.RegDeleteKeyExA
 @ stdcall RegDeleteKeyExW() advapi32.RegDeleteKeyExW
-@ stdcall RegDeleteTreeA() advapi32_vista.RegDeleteTreeA
-@ stdcall RegDeleteTreeW() advapi32_vista.RegDeleteTreeW
+@ stdcall -version=0-0x5FF RegDeleteTreeA() advapi32_vista.RegDeleteTreeA
+@ stdcall -version=0-0x5FF RegDeleteTreeW() advapi32_vista.RegDeleteTreeW
+@ stdcall -version=0x600+ RegDeleteTreeA() advapi32.RegDeleteTreeA
+@ stdcall -version=0x600+ RegDeleteTreeW() advapi32.RegDeleteTreeW
 @ stdcall RegDeleteValueA() advapi32.RegDeleteValueA
 @ stdcall RegDeleteValueW() advapi32.RegDeleteValueW
 @ stub RegDisablePredefinedCacheEx

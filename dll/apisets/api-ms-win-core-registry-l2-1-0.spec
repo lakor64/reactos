@@ -31,6 +31,7 @@
 @ stdcall RegSaveKeyA() advapi32.RegSaveKeyA
 @ stdcall RegSaveKeyW() advapi32.RegSaveKeyW
 @ stub RegSetKeyValueA
-@ stdcall RegSetKeyValueW() advapi32_vista.RegSetKeyValueW
+@ stdcall -version=0-0x5FF RegSetKeyValueW() advapi32_vista.RegSetKeyValueW
+@ stdcall -version=0x600+ RegSetKeyValueW() advapi32_vista.RegSetKeyValueW
 @ stdcall RegSetValueA() advapi32.RegSetValueA
 @ stdcall RegSetValueW() advapi32.RegSetValueW

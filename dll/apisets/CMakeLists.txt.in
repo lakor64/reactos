@@ -30,6 +30,11 @@ function (add_apiset apiset_name baseaddress)
         target_compile_options(${apiset_name} PRIVATE /wd4026 /wd4273 /Oi-)
     endif()
 
+	# HACK: remove advapi32_vista on TARGET_NT >= 0x600
+	if (TARGET_NT GREATER_EQUAL 0x600)
+		list(REMOVE_ITEM ARGN advapi32_vista)
+	endif()
+
     add_importlibs(${apiset_name} ${ARGN} ntdll)
 
     add_cd_file(TARGET ${apiset_name} DESTINATION reactos/winsxs/x86_reactos.apisets_6595b64144ccf1df_1.0.0.0_none_deadbeef FOR all)
