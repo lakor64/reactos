@@ -1,6 +1,8 @@
 
-remove_definitions(-D_WIN32_WINNT=0x502)
-add_definitions(-D_WIN32_WINNT=0x600)
+if (TARGET_NT LESS 0x600)
+	remove_definitions(-D_WIN32_WINNT=${TARGET_NT})
+	add_definitions(-D_WIN32_WINNT=0x600)
+endif()
 
 include_directories(
     concfg
