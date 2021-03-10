@@ -1,5 +1,8 @@
-remove_definitions(-D_WIN32_WINNT=0x502 -DWINVER=0x502)
-add_definitions(-D_WIN32_WINNT=0x601)
+if (TARGET_NT LESS 0x601)
+	remove_definitions(-D_WIN32_WINNT=0x502 -DWINVER=0x502)
+	add_definitions(-D_WIN32_WINNT=0x601)
+endif()
+
 add_definitions(-DNTDDI_VERSION=0x06010000)
 
 include_directories(
@@ -57,7 +60,12 @@ else()
 endif()
 
 set_module_type(nfsd win32cui)
-add_importlibs(nfsd advapi32 iphlpapi kernel32_vista libtirpc msvcrt shell32 ws2_32 wldap32 kernel32 ntdll)
+add_importlibs(nfsd advapi32 iphlpapi libtirpc msvcrt shell32 ws2_32 wldap32 kernel32 ntdll)
+
+if (TARGET_NT LESS 0x600)
+	add_importlibs(nfsd kernel32_vista)
+endif()
+
 add_pch(nfsd precomp.h SOURCE)
 add_cd_file(TARGET nfsd DESTINATION reactos/system32 FOR all)
 add_cd_file(FILE "${CMAKE_CURRENT_SOURCE_DIR}/netconfig" DESTINATION reactos/system32/drivers/etc FOR all)

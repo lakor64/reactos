@@ -1,5 +1,7 @@
 
-remove_definitions(-D_WIN32_WINNT=0x502)
+if (TARGET_NT LESS 0x603)
+	remove_definitions(-D_WIN32_WINNT=${TARGET_NT})
+endif()
 
 list(APPEND SOURCE_SHARED
     shared/core/fxcxdeviceinit.cpp
