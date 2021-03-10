@@ -39,12 +39,13 @@
 
 #ifdef HAVE_POLL
 #include <sys/poll.h>
-#else
+#if !defined(_WIN32_WINNT) || (_WIN32_WINNT < 0x600) /* note: psdk winsock2 defined pollfd in vista+ */
 /* kludge it up */
 struct pollfd { int fd; short events; short revents; };
 #define POLLIN  1
 #define POLLPRI 2
 #define POLLOUT 4
+#endif /* !_WIN32_WINNT || _WIN32_WINNT < 0x600 */
 #endif
 
 /* GNU C attributes. */
