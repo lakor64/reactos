@@ -1,10 +1,12 @@
 
-remove_definitions(
-    -DWINVER=0x502
-    -D_WIN32_WINNT=0x502)
-add_definitions(
-    -DWINVER=0x600
-    -D_WIN32_WINNT=0x600)
+if (TARGET_NT LESS 0x600)
+	remove_definitions(
+		-DWINVER=${TARGET_NT}
+		-D_WIN32_WINNT=${TARGET_NT})
+	add_definitions(
+		-DWINVER=0x600
+		-D_WIN32_WINNT=0x600)
+endif()
 
 add_definitions(
     -D__WINESRC__
