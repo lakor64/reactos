@@ -394,9 +394,9 @@ function(spec2def _dllname _spec_file)
         DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${_spec_file} native-spec2def)
 
     if(__spec2def_ADD_IMPORTLIB)
-        set(_extraflags)
+        set(_extraflags ${__version_arg})
         if(__spec2def_NO_PRIVATE_WARNINGS)
-            set(_extraflags --no-private-warnings)
+            list(APPEND _extraflags --no-private-warnings)
         endif()
 
         generate_import_lib(lib${_file} ${_dllname} ${_spec_file} ${_extraflags})
