@@ -32,7 +32,7 @@ if(NOT ARCH)
     set(ARCH i386)
 endif()
 if(NOT TARGET_NT)
-	set(TARGET_NT 0x601)
+	set(TARGET_NT 0x501)
 endif()
 
 # Now the ARCH variable will be in lowercase.
