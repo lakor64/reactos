@@ -31,6 +31,10 @@ set(CMAKE_CXX_STANDARD 11)
 if(NOT ARCH)
     set(ARCH i386)
 endif()
+if(NOT TARGET_NT)
+	set(TARGET_NT 0x601)
+endif()
+
 # Now the ARCH variable will be in lowercase.
 # It is needed because STREQUAL comparison
 # is case-sensitive.
@@ -188,12 +192,22 @@ Enable this if the module uses typeid or dynamic_cast. You will probably need to
     endif()
 
     # Version Options
-    add_definitions(-DWINVER=0x601
-                    -D_WIN32_IE=0x601
-                    -D_WIN32_WINNT=0x601
-                    -D_WIN32_WINDOWS=0x601
-                    -D_SETUPAPI_VER=0x601
+	
+	set(TARGET_IE ${TARGET_NT})
+
+	if (${TARGET_IE} LESS 0x600) # 0x600
+		set(TARGET_IE 0x600)
+	endif()
+	
+    add_definitions(-DWINVER=${TARGET_NT}
+                    -D_WIN32_IE=${TARGET_IE}
+                    -D_WIN32_WINNT=${TARGET_NT}
+                    -D_WIN32_WINDOWS=${TARGET_NT}
+                    -D_SETUPAPI_VER=${TARGET_NT}
                     -DMINGW_HAS_SECURE_API=1)
+
+
+	message(STATUS "Target NT: ${TARGET_NT} (IE: ${TARGET_IE})")
 
     # Arch Options
     if(ARCH STREQUAL "i386")
