@@ -1,4 +1,6 @@
 
+add_subdirectory(advapi32_vista)
+
 spec2def(advapi32.dll advapi32.spec ADD_IMPORTLIB)
 add_definitions(-D_ADVAPI32_)
 
