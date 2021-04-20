@@ -9,7 +9,7 @@
 @ stub __initialize_lconv_for_unsigned_char
 @ stdcall __pctype_func() msvcrt.__pctype_func
 @ stdcall __pwctype_func() msvcrt.__pwctype_func
-@ stub _configthreadlocale
+@ cdecl _configthreadlocale(long) msvcrt._configthreadlocale
 @ stub _create_locale
 @ stub _free_locale
 @ stub _get_current_locale

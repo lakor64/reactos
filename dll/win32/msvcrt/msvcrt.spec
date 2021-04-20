@@ -1557,3 +1557,7 @@
 @ stub -version=0x600+ wprintf_s
 @ varargs wscanf(wstr)
 @ stub -version=0x600+ wscanf_s
+
+@ cdecl _configthreadlocale(long) # NOTE: move to ucrtbase
+@ cdecl _set_new_mode(long) MSVCRT__set_new_mode # NOTE: move to ucrtbase
+ 

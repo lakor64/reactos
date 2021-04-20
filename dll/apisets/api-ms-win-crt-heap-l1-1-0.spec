@@ -23,7 +23,7 @@
 @ stub _query_new_mode
 @ stub _realloc_base
 @ stub _recalloc
-@ stub _set_new_mode
+@ cdecl _set_new_mode(long) msvcrt._set_new_mode
 @ stdcall calloc() msvcrt.calloc
 @ stdcall free() msvcrt.free
 @ stdcall malloc() msvcrt.malloc

@@ -26,8 +26,8 @@
 @ stdcall _c_exit() msvcrt._c_exit
 @ stdcall _cexit() msvcrt._cexit
 @ stdcall -arch=i386,x86_64 _clearfp() msvcrt._clearfp
-@ stub _configure_narrow_argv
-@ stub _configure_wide_argv
+@ cdecl -stub _configure_narrow_argv(long)
+@ cdecl -stub _configure_wide_argv(long)
 @ stdcall -arch=i386,x86_64 _control87() msvcrt._control87
 @ stdcall _controlfp() msvcrt._controlfp
 @ stdcall -version=0x600+ _controlfp_s() msvcrt._controlfp_s
@@ -54,9 +54,9 @@
 @ stdcall -version=0x600+ _get_wpgmptr() msvcrt._get_wpgmptr
 @ stdcall -version=0x502 -arch=i386,x86_64 _getdllprocaddr() msvcrt._getdllprocaddr
 @ stdcall _getpid() msvcrt._getpid
-@ stub _initialize_narrow_environment
+@ cdecl -stub _initialize_narrow_environment()
 @ stub _initialize_onexit_table
-@ stub _initialize_wide_environment
+@ cdecl -stub  _initialize_wide_environment()
 @ stdcall _initterm() msvcrt._initterm
 @ stdcall -version=0x600+ _initterm_e() msvcrt._initterm_e
 @ stub _invalid_parameter_noinfo
