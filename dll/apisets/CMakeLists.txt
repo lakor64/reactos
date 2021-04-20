@@ -5,7 +5,7 @@
 project(apisets)
 
 function (add_apiset apiset_name baseaddress)
-    spec2def(${apiset_name}.dll ${apiset_name}.spec ADD_IMPORTLIB)
+    spec2def(${apiset_name}.dll ${apiset_name}.spec ADD_IMPORTLIB VERSION 0xA00)
 
     add_definitions(
         -D_CTYPE_DISABLE_MACROS

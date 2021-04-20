@@ -1,6 +1,6 @@
 
 include_directories(${REACTOS_SOURCE_DIR}/sdk/lib/crt/include)
-spec2def(msvcrt.dll msvcrt.spec ADD_IMPORTLIB)
+spec2def(msvcrt.dll msvcrt.spec ADD_IMPORTLIB VERSION 0x600)
 
 # Let consumers of msvcrt have the right defines
 target_compile_definitions(libmsvcrt INTERFACE _DLL __USE_CRTIMP)
