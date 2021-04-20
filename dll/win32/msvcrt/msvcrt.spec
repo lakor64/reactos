@@ -553,7 +553,7 @@
 @ stub -version=0x600+ _get_environ
 @ cdecl -version=0x600+ _get_errno(ptr)
 @ stub -version=0x600+ _get_fileinfo
-@ stub -version=0x600+ _get_fmode
+@ cdecl -version=0x600+ _get_fmode(ptr)
 # @ cdecl _get_heap_handle()
 @ cdecl _get_osfhandle(long)
 @ cdecl -version=0x600+ _get_osplatform(ptr)
@@ -941,7 +941,7 @@
 @ cdecl -version=0x600+ _set_errno(long)
 @ cdecl _set_error_mode(long)
 @ stub -version=0x600+ _set_fileinfo
-@ stub -version=0x600+ _set_fmode
+@ cdecl -version=0x600+ _set_fmode(long)
 @ stub -version=0x600+ _set_output_format
 @ cdecl _set_sbh_threshold(long)
 @ cdecl _seterrormode(long)
