@@ -1294,6 +1294,7 @@
 @ cdecl -arch=x86_64,arm atan2f(long)
 @ cdecl -arch=x86_64,arm atanf(long)
 @ extern atexit # Declaring it as extern let us use the symbol from msvcrtex while having the __imp_ symbol defined in the import lib for those who really need it
+@ cdecl -version=0x600+ _crt_atexit(ptr) atexit
 @ cdecl atof(str)
 @ cdecl atoi(str)
 @ cdecl atol(str)

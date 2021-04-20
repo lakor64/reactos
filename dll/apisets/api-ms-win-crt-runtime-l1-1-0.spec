@@ -32,7 +32,7 @@
 @ stdcall _controlfp() msvcrt._controlfp
 @ stdcall -version=0x600+ _controlfp_s() msvcrt._controlfp_s
 @ stub _crt_at_quick_exit
-@ stub _crt_atexit
+@ cdecl _crt_atexit(ptr) msvcrt._crt_atexit
 @ stub _crt_debugger_hook
 @ stdcall _endthread() msvcrt._endthread
 @ stdcall _endthreadex() msvcrt._endthreadex
