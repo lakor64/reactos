@@ -66,8 +66,10 @@
 @ stub _register_onexit_function
 @ stub _register_thread_local_exe_atexit_callback
 @ stdcall _resetstkoflw() msvcrt._resetstkoflw
-@ stub _seh_filter_dll
-@ stub _seh_filter_exe
+@ cdecl -version=0xA00+ _o__seh_filter_dll() msvcrt.__CppXcptFilter
+@ cdecl -version=0xA00+ _o__seh_filter_exe() msvcrt._XcptFilter
+@ cdecl -version=0xA00+ _seh_filter_dll() msvcrt.__CppXcptFilter
+@ cdecl -version=0xA00+ _seh_filter_exe() msvcrt._XcptFilter
 @ stub _set_abort_behavior
 @ stub _set_app_type
 @ stdcall -version=0x600+ _set_controlfp() msvcrt._set_controlfp
