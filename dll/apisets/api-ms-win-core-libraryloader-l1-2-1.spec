@@ -11,7 +11,7 @@
 @ stdcall -version=0x600+ EnumResourceTypesExW() kernel32.EnumResourceTypesExW
 @ stdcall FindResourceExW() kernel32.FindResourceExW
 @ stdcall FindResourceW() kernel32.FindResourceW
-@ stub FindStringOrdinal
+@ stub -version=0x601+ FindStringOrdinal
 @ stdcall FreeLibrary() kernel32.FreeLibrary
 @ stdcall FreeLibraryAndExitThread() kernel32.FreeLibraryAndExitThread
 @ stdcall FreeResource() kernel32.FreeResource
@@ -28,6 +28,6 @@
 @ stdcall LoadLibraryA() kernel32.LoadLibraryA
 @ stdcall LoadLibraryW() kernel32.LoadLibraryW
 @ stdcall LockResource() kernel32.LockResource
-@ stub RemoveDllDirectory
-@ stub SetDefaultDllDirectories
+@ stub -version=0x600+ RemoveDllDirectory
+@ stub -version=0x600+ SetDefaultDllDirectories
 @ stdcall SizeofResource() kernel32.SizeofResource

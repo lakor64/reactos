@@ -34,12 +34,12 @@
 @ stdcall IsValidCodePage() kernel32.IsValidCodePage
 @ stdcall IsValidLocale() kernel32.IsValidLocale
 @ stdcall -version=0x600+ IsValidLocaleName() kernel32.IsValidLocaleName
-@ stub IsValidNLSVersion
+@ stub -version=0x602+ IsValidNLSVersion
 @ stdcall -version=0x600+ LCIDToLocaleName() kernel32.LCIDToLocaleName
 @ stdcall LCMapStringA() kernel32.LCMapStringA
 @ stdcall -version=0x600+ LCMapStringEx() kernel32.LCMapStringEx
 @ stdcall LCMapStringW() kernel32.LCMapStringW
 @ stdcall -version=0x600+ LocaleNameToLCID() kernel32.LocaleNameToLCID
-@ stub ResolveLocaleName
+@ stub -version=0x601+ ResolveLocaleName
 @ stdcall VerLanguageNameA() kernel32.VerLanguageNameA
 @ stdcall VerLanguageNameW() kernel32.VerLanguageNameW
