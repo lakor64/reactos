@@ -362,7 +362,8 @@ list(APPEND CRT_WINE_SOURCE
     wine/cpp.c
     wine/except.c
     wine/heap.c
-    wine/undname.c)
+    wine/undname.c
+    wine/ucrtbase.c)
 
 if(ARCH STREQUAL "i386")
     list(APPEND CRT_ASM_SOURCE

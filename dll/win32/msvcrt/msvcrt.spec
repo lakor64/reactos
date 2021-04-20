@@ -1558,6 +1558,16 @@
 @ varargs wscanf(wstr)
 @ stub -version=0x600+ wscanf_s
 
-@ cdecl _configthreadlocale(long) # NOTE: move to ucrtbase
-@ cdecl _set_new_mode(long) MSVCRT__set_new_mode # NOTE: move to ucrtbase
- 
+# **** move to ucrtbase ****
+@ cdecl _configthreadlocale(long)
+@ cdecl _o__configthreadlocale(long) _configthreadlocale
+@ cdecl _set_new_mode(long) MSVCRT__set_new_mode
+@ cdecl _o__set_new_mode(long) MSVCRT__set_new_mode
+@ cdecl _get_initial_wide_environment()
+@ cdecl _get_initial_narrow_environment()
+@ cdecl _o__get_initial_narrow_environment() _get_initial_narrow_environment
+@ cdecl _o__get_initial_wide_environment() _get_initial_wide_environment
+@ cdecl _get_narrow_winmain_command_line()
+@ cdecl _o__get_narrow_winmain_command_line() _get_narrow_winmain_command_line
+@ cdecl _get_wide_winmain_command_line()
+@ cdecl _o__get_wide_winmain_command_line() _get_wide_winmain_command_line

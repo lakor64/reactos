@@ -518,4 +518,14 @@ unsigned int *__p__winver(void)
     return &_winver;
 }
 
+char** CDECL _get_initial_narrow_environment(void)
+{
+  return __initenv;
+}
+
+wchar_t** CDECL _get_initial_wide_environment(void)
+{
+  return __winitenv;
+}
+
 /* EOF */

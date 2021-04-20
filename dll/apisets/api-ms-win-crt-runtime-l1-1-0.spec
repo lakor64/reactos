@@ -43,14 +43,14 @@
 @ stdcall _fpreset() msvcrt._fpreset
 @ stdcall -version=0x600+ _get_doserrno() msvcrt._get_doserrno
 @ stdcall -version=0x600+ _get_errno() msvcrt._get_errno
-@ stub _get_initial_narrow_environment
-@ stub _get_initial_wide_environment
+@ cdecl _get_initial_narrow_environment() msvcrt._get_initial_narrow_environment
+@ cdecl _get_initial_wide_environment() msvcrt._get_initial_wide_environment
 @ stub _get_invalid_parameter_handler
-@ stub _get_narrow_winmain_command_line
+@ stdcall _get_narrow_winmain_command_line() msvcrt._get_narrow_winmain_command_line
 @ stdcall -version=0x600+ _get_pgmptr() msvcrt._get_pgmptr
 @ stub _get_terminate
 @ stub _get_thread_local_invalid_parameter_handler
-@ stub _get_wide_winmain_command_line
+@ stdcall _get_wide_winmain_command_line() msvcrt._get_wide_winmain_command_line
 @ stdcall -version=0x600+ _get_wpgmptr() msvcrt._get_wpgmptr
 @ stdcall -version=0x502 -arch=i386,x86_64 _getdllprocaddr() msvcrt._getdllprocaddr
 @ stdcall _getpid() msvcrt._getpid
