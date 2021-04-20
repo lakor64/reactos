@@ -71,7 +71,7 @@
 @ cdecl -version=0xA00+ _seh_filter_dll() msvcrt.__CppXcptFilter
 @ cdecl -version=0xA00+ _seh_filter_exe() msvcrt._XcptFilter
 @ stub _set_abort_behavior
-@ cdecl _set_app_type msvcrt.__set_app_type
+@ cdecl _set_app_type(long) msvcrt.__set_app_type
 @ stdcall -version=0x600+ _set_controlfp() msvcrt._set_controlfp
 @ stdcall -version=0x600+ _set_doserrno() msvcrt._set_doserrno
 @ stdcall -version=0x600+ _set_errno() msvcrt._set_errno
