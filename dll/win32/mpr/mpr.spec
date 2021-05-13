@@ -111,3 +111,12 @@
 @ stdcall WNetUseConnectionW(long ptr wstr wstr long wstr ptr ptr)
 @ stdcall WNetVerifyPasswordA(str ptr)
 @ stdcall WNetVerifyPasswordW(wstr ptr)
+
+@ stub -stub WNetConnectionDialog2(ptr long wstr long)
+@ stub -stub WNetDisconnectDialog2(ptr long ptr long)
+@ stub -stub WNetGetConnection2W(wstr ptr ptr)
+@ stub -stub WNetGetDirectoryTypeW(wstr ptr long)
+@ stub -stub WNetGetPropertyTextW(long long wstr wstr long long)
+@ stub -stub WNetPropertyDialogW(ptr long long wstr long)
+@ stub -stub WNetRestoreSingleConnectionW(ptr wstr long)
+@ stub -stub WNetDirectoryNotifyW(ptr wstr long)
