@@ -28,9 +28,9 @@
 /*****************************************************************************
  * Direct 3D v9 #defines
  */
-#define D3DCLEAR_TARGET   0x00000001L
-#define D3DCLEAR_ZBUFFER  0x00000002L
-#define D3DCLEAR_STENCIL  0x00000004L
+#define D3DCLEAR_TARGET   __MSABI_LONG(0x00000001)
+#define D3DCLEAR_ZBUFFER  __MSABI_LONG(0x00000002)
+#define D3DCLEAR_STENCIL  __MSABI_LONG(0x00000004)
 
 #define D3DCLIPPLANE0 (1 << 0)
 #define D3DCLIPPLANE1 (1 << 1)
@@ -46,19 +46,19 @@
 #define D3DCOLOR_XYUV(y,u,v)         D3DCOLOR_ARGB(0xFF,y,u,v)
 #define D3DCOLOR_AYUV(a,y,u,v)       D3DCOLOR_ARGB(a,y,u,v)
 
-#define D3DCS_LEFT                   0x001L
-#define D3DCS_RIGHT                  0x002L
-#define D3DCS_TOP                    0x004L
-#define D3DCS_BOTTOM                 0x008L
-#define D3DCS_FRONT                  0x010L
-#define D3DCS_BACK                   0x020L
-#define D3DCS_PLANE0                 0x040L
-#define D3DCS_PLANE1                 0x080L
-#define D3DCS_PLANE2                 0x100L
-#define D3DCS_PLANE3                 0x200L
-#define D3DCS_PLANE4                 0x400L
-#define D3DCS_PLANE5                 0x800L
-#define D3DCS_ALL                    0xFFFL
+#define D3DCS_LEFT                   __MSABI_LONG(0x001)
+#define D3DCS_RIGHT                  __MSABI_LONG(0x002)
+#define D3DCS_TOP                    __MSABI_LONG(0x004)
+#define D3DCS_BOTTOM                 __MSABI_LONG(0x008)
+#define D3DCS_FRONT                  __MSABI_LONG(0x010)
+#define D3DCS_BACK                   __MSABI_LONG(0x020)
+#define D3DCS_PLANE0                 __MSABI_LONG(0x040)
+#define D3DCS_PLANE1                 __MSABI_LONG(0x080)
+#define D3DCS_PLANE2                 __MSABI_LONG(0x100)
+#define D3DCS_PLANE3                 __MSABI_LONG(0x200)
+#define D3DCS_PLANE4                 __MSABI_LONG(0x400)
+#define D3DCS_PLANE5                 __MSABI_LONG(0x800)
+#define D3DCS_ALL                    __MSABI_LONG(0xFFF)
 
 #define D3DFVF_TEXTUREFORMAT1 3u
 #define D3DFVF_TEXTUREFORMAT2 0u
@@ -85,7 +85,7 @@
 #define D3DCLIPPLANE5              (1 << 5)
 
 
-#define D3DRENDERSTATE_WRAPBIAS    128UL
+#define D3DRENDERSTATE_WRAPBIAS    __MSABI_LONG(128U)
 
 /* MSDN has this in d3d9caps.h, but it should be here */
 #define D3DTSS_TCI_PASSTHRU                       0x00000
@@ -101,25 +101,34 @@
 #define D3DTS_WORLD3 D3DTS_WORLDMATRIX(3)
 #define D3DTS_WORLDMATRIX(index) (D3DTRANSFORMSTATETYPE)(index + 256)
 
-#define D3DUSAGE_RENDERTARGET       0x00000001L
-#define D3DUSAGE_DEPTHSTENCIL       0x00000002L
-#define D3DUSAGE_WRITEONLY          0x00000008L
-#define D3DUSAGE_SOFTWAREPROCESSING 0x00000010L
-#define D3DUSAGE_DONOTCLIP          0x00000020L
-#define D3DUSAGE_POINTS             0x00000040L
-#define D3DUSAGE_RTPATCHES          0x00000080L
-#define D3DUSAGE_NPATCHES           0x00000100L
-#define D3DUSAGE_DYNAMIC            0x00000200L
-#define D3DUSAGE_AUTOGENMIPMAP      0x00000400L
-#define D3DUSAGE_DMAP               0x00004000L
+#define D3DUSAGE_RENDERTARGET       __MSABI_LONG(0x00000001)
+#define D3DUSAGE_DEPTHSTENCIL       __MSABI_LONG(0x00000002)
+#define D3DUSAGE_WRITEONLY          __MSABI_LONG(0x00000008)
+#define D3DUSAGE_SOFTWAREPROCESSING __MSABI_LONG(0x00000010)
+#define D3DUSAGE_DONOTCLIP          __MSABI_LONG(0x00000020)
+#define D3DUSAGE_POINTS             __MSABI_LONG(0x00000040)
+#define D3DUSAGE_RTPATCHES          __MSABI_LONG(0x00000080)
+#define D3DUSAGE_NPATCHES           __MSABI_LONG(0x00000100)
+#define D3DUSAGE_DYNAMIC            __MSABI_LONG(0x00000200)
+#define D3DUSAGE_AUTOGENMIPMAP      __MSABI_LONG(0x00000400)
+#define D3DUSAGE_DMAP               __MSABI_LONG(0x00004000)
 
-#define D3DUSAGE_QUERY_FILTER                   0x00020000L
-#define D3DUSAGE_QUERY_LEGACYBUMPMAP            0x00008000L
-#define D3DUSAGE_QUERY_POSTPIXELSHADER_BLENDING 0x00080000L
-#define D3DUSAGE_QUERY_SRGBREAD                 0x00010000L
-#define D3DUSAGE_QUERY_SRGBWRITE                0x00040000L
-#define D3DUSAGE_QUERY_VERTEXTEXTURE            0x00100000L
-#define D3DUSAGE_QUERY_WRAPANDMIP               0x00200000L
+/* Parts added with d3d9ex */
+#if !defined(D3D_DISABLE_9EX)
+#define D3DUSAGE_RESTRICTED_CONTENT              __MSABI_LONG(0x00000800)
+#define D3DUSAGE_RESTRICT_SHARED_RESOURCE_DRIVER __MSABI_LONG(0x00001000)
+#define D3DUSAGE_RESTRICT_SHARED_RESOURCE        __MSABI_LONG(0x00002000)
+#define D3DUSAGE_NONSECURE                       __MSABI_LONG(0x00800000)
+#define D3DUSAGE_TEXTAPI                         __MSABI_LONG(0x10000000)
+#endif /* D3D_DISABLE_9EX */
+
+#define D3DUSAGE_QUERY_LEGACYBUMPMAP            __MSABI_LONG(0x00008000)
+#define D3DUSAGE_QUERY_SRGBREAD                 __MSABI_LONG(0x00010000)
+#define D3DUSAGE_QUERY_FILTER                   __MSABI_LONG(0x00020000)
+#define D3DUSAGE_QUERY_SRGBWRITE                __MSABI_LONG(0x00040000)
+#define D3DUSAGE_QUERY_POSTPIXELSHADER_BLENDING __MSABI_LONG(0x00080000)
+#define D3DUSAGE_QUERY_VERTEXTEXTURE            __MSABI_LONG(0x00100000)
+#define D3DUSAGE_QUERY_WRAPANDMIP               __MSABI_LONG(0x00200000)
 
 #define D3DWRAP_U        1
 #define D3DWRAP_V        2
@@ -171,10 +180,10 @@
 #define D3DTA_COMPLEMENT        0x00000010
 #define D3DTA_ALPHAREPLICATE    0x00000020
 
-#define D3DCOLORWRITEENABLE_RED   (1L<<0)
-#define D3DCOLORWRITEENABLE_GREEN (1L<<1)
-#define D3DCOLORWRITEENABLE_BLUE  (1L<<2)
-#define D3DCOLORWRITEENABLE_ALPHA (1L<<3)
+#define D3DCOLORWRITEENABLE_RED   (__MSABI_LONG(1)<<0)
+#define D3DCOLORWRITEENABLE_GREEN (__MSABI_LONG(1)<<1)
+#define D3DCOLORWRITEENABLE_BLUE  (__MSABI_LONG(1)<<2)
+#define D3DCOLORWRITEENABLE_ALPHA (__MSABI_LONG(1)<<3)
 
 #define D3DPV_DONOTCOPYDATA         (1 << 0)
 
@@ -471,6 +480,9 @@ typedef enum _D3DSHADER_INSTRUCTION_OPCODE_TYPE {
 
 #define D3DSP_DCL_USAGEINDEX_SHIFT 16
 #define D3DSP_DCL_USAGEINDEX_MASK  0x000f0000
+
+#define D3DSP_OPCODESPECIFICCONTROL_SHIFT 16
+#define D3DSP_OPCODESPECIFICCONTROL_MASK  0x00ff0000
 
 #define D3DSP_TEXTURETYPE_SHIFT 27
 #define D3DSP_TEXTURETYPE_MASK  0x78000000
@@ -829,7 +841,6 @@ typedef enum _D3DFORMAT {
     D3DFMT_L16                  =  81,
     D3DFMT_D32F_LOCKABLE        =  82,
     D3DFMT_D24FS8               =  83,
-
 #ifndef D3D_DISABLE_9EX
     D3DFMT_D32_LOCKABLE         =  84,
     D3DFMT_S8_LOCKABLE          =  85,

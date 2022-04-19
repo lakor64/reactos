@@ -13,14 +13,17 @@ include_directories(BEFORE ${REACTOS_SOURCE_DIR}/sdk/include/reactos/wine)
 spec2def(d3dwine.dll wined3d.spec ADD_IMPORTLIB)
 
 list(APPEND SOURCE
+	adapter_gl.c
+	adapter_vk.c
     arb_program_shader.c
     ati_fragment_shader.c
     buffer.c
     context.c
+	context_gl.c
+	#context_vk.c
     cs.c
     device.c
     directx.c
-    dxtn.c
     gl_compat.c
     glsl_shader.c
     nvidia_texture_shader.c
@@ -31,6 +34,7 @@ list(APPEND SOURCE
     shader.c
     shader_sm1.c
     shader_sm4.c
+	shader_spirv.c
     state.c
     stateblock.c
     surface.c
@@ -39,7 +43,10 @@ list(APPEND SOURCE
     utils.c
     vertexdeclaration.c
     view.c
+	wined3d_gl.h
     wined3d_main.c
+	wined3d_private.h
+	wined3d_vk.h
     precomp.h)
 
 add_library(d3dwine MODULE

@@ -33,20 +33,48 @@ WINE_DECLARE_DEBUG_CHANNEL(winediag);
 
 struct wined3d_wndproc
 {
+    struct wined3d *wined3d;
     HWND window;
     BOOL unicode;
+    BOOL filter;
     WNDPROC proc;
     struct wined3d_device *device;
+    uint32_t flags;
 };
 
 struct wined3d_wndproc_table
 {
     struct wined3d_wndproc *entries;
-    unsigned int count;
+    SIZE_T count;
     SIZE_T size;
 };
 
+struct wined3d_window_hook
+{
+    HHOOK hook;
+    DWORD thread_id;
+    unsigned int count;
+};
+
+struct wined3d_registered_swapchain_state
+{
+    struct wined3d_swapchain_state *state;
+    DWORD thread_id;
+};
+
+struct wined3d_swapchain_state_table
+{
+    struct wined3d_window_hook *hooks;
+    SIZE_T hooks_size;
+    SIZE_T hook_count;
+
+    struct wined3d_registered_swapchain_state *states;
+    SIZE_T states_size;
+    SIZE_T state_count;
+};
+
 static struct wined3d_wndproc_table wndproc_table;
+static struct wined3d_swapchain_state_table swapchain_state_table;
 
 static CRITICAL_SECTION wined3d_cs;
 static CRITICAL_SECTION_DEBUG wined3d_cs_debug =
@@ -68,14 +96,22 @@ static CRITICAL_SECTION_DEBUG wined3d_wndproc_cs_debug =
 };
 static CRITICAL_SECTION wined3d_wndproc_cs = {&wined3d_wndproc_cs_debug, -1, 0, 0, 0, 0};
 
+CRITICAL_SECTION wined3d_command_cs;
+static CRITICAL_SECTION_DEBUG wined3d_command_cs_debug =
+{
+    0, 0, &wined3d_command_cs,
+    {&wined3d_command_cs_debug.ProcessLocksList,
+    &wined3d_command_cs_debug.ProcessLocksList},
+    0, 0, {(DWORD_PTR)(__FILE__ ": wined3d_command_cs")}
+};
+CRITICAL_SECTION wined3d_command_cs = {&wined3d_command_cs_debug, -1, 0, 0, 0, 0};
+
 /* When updating default value here, make sure to update winecfg as well,
  * where appropriate. */
 struct wined3d_settings wined3d_settings =
 {
-    TRUE,           /* Multithreaded CS by default. */
-    FALSE,          /* explicit_gl_version */
-    MAKEDWORD_VERSION(1, 0), /* Default to legacy OpenGL */
-    TRUE,           /* Use of GLSL enabled by default */
+    WINED3D_CSMT_ENABLE,     /* Multithreaded CS by default. */
+    MAKEDWORD_VERSION(4, 4), /* Default to OpenGL 4.4 */
     ORM_FBO,        /* Use FBOs to do offscreen rendering */
     PCI_VENDOR_NONE,/* PCI Vendor ID */
     PCI_DEVICE_NONE,/* PCI Device ID */
@@ -83,15 +119,16 @@ struct wined3d_settings wined3d_settings =
     NULL,           /* No wine logo by default */
     TRUE,           /* Prefer multisample textures to multisample renderbuffers. */
     ~0u,            /* Don't force a specific sample count by default. */
-    FALSE,          /* No strict draw ordering. */
     FALSE,          /* Don't range check relative addressing indices in float constants. */
+    FALSE,          /* No strict shader math by default. */
     ~0U,            /* No VS shader model limit by default. */
     ~0U,            /* No HS shader model limit by default. */
     ~0U,            /* No DS shader model limit by default. */
     ~0U,            /* No GS shader model limit by default. */
     ~0U,            /* No PS shader model limit by default. */
     ~0u,            /* No CS shader model limit by default. */
-    FALSE,          /* 3D support enabled by default. */
+    WINED3D_RENDERER_AUTO,
+    WINED3D_SHADER_BACKEND_AUTO,
 };
 
 struct wined3d * CDECL wined3d_create(DWORD flags)
@@ -105,11 +142,10 @@ struct wined3d * CDECL wined3d_create(DWORD flags)
         return NULL;
     }
 
-    if (wined3d_settings.no_3d)
+    if (wined3d_settings.renderer == WINED3D_RENDERER_NO3D)
         flags |= WINED3D_NO3D;
 
-    hr = wined3d_init(object, flags);
-    if (FAILED(hr))
+    if (FAILED(hr = wined3d_init(object, flags)))
     {
         WARN("Failed to initialize wined3d object, hr %#x.\n", hr);
         heap_free(object);
@@ -144,6 +180,30 @@ success:
     return 0;
 }
 
+BOOL wined3d_get_app_name(char *app_name, unsigned int app_name_size)
+{
+    char buffer[MAX_PATH];
+    unsigned int len;
+    char *p, *name;
+
+    len = GetModuleFileNameA(0, buffer, ARRAY_SIZE(buffer));
+    if (!(len && len < MAX_PATH))
+        return FALSE;
+
+    name = buffer;
+    if ((p = strrchr(name, '/' )))
+        name = p + 1;
+    if ((p = strrchr(name, '\\')))
+        name = p + 1;
+
+    len = strlen(name) + 1;
+    if (app_name_size < len)
+        return FALSE;
+
+    memcpy(app_name, name, len);
+    return TRUE;
+}
+
 static BOOL wined3d_dll_init(HINSTANCE hInstDLL)
 {
     DWORD wined3d_context_tls_idx;
@@ -151,7 +211,7 @@ static BOOL wined3d_dll_init(HINSTANCE hInstDLL)
     DWORD size = sizeof(buffer);
     HKEY hkey = 0;
     HKEY appkey = 0;
-    DWORD len, tmpvalue;
+    DWORD tmpvalue;
     WNDCLASSA wc;
 
     wined3d_context_tls_idx = TlsAlloc();
@@ -193,20 +253,16 @@ static BOOL wined3d_dll_init(HINSTANCE hInstDLL)
     /* @@ Wine registry key: HKCU\Software\Wine\Direct3D */
     if ( RegOpenKeyA( HKEY_CURRENT_USER, "Software\\Wine\\Direct3D", &hkey ) ) hkey = 0;
 
-    len = GetModuleFileNameA( 0, buffer, MAX_PATH );
-    if (len && len < MAX_PATH)
+    if (wined3d_get_app_name(buffer, ARRAY_SIZE(buffer)))
     {
         HKEY tmpkey;
         /* @@ Wine registry key: HKCU\Software\Wine\AppDefaults\app.exe\Direct3D */
-        if (!RegOpenKeyA( HKEY_CURRENT_USER, "Software\\Wine\\AppDefaults", &tmpkey ))
+        if (!RegOpenKeyA(HKEY_CURRENT_USER, "Software\\Wine\\AppDefaults", &tmpkey))
         {
-            char *p, *appname = buffer;
-            if ((p = strrchr( appname, '/' ))) appname = p + 1;
-            if ((p = strrchr( appname, '\\' ))) appname = p + 1;
-            strcat( appname, "\\Direct3D" );
-            TRACE("appname = [%s]\n", appname);
-            if (RegOpenKeyA( tmpkey, appname, &appkey )) appkey = 0;
-            RegCloseKey( tmpkey );
+            strcat(buffer, "\\Direct3D");
+            TRACE("Application name %s.\n", buffer);
+            if (RegOpenKeyA(tmpkey, buffer, &appkey)) appkey = 0;
+            RegCloseKey(tmpkey);
         }
     }
 
@@ -218,17 +274,31 @@ static BOOL wined3d_dll_init(HINSTANCE hInstDLL)
         {
             ERR_(winediag)("Setting maximum allowed wined3d GL version to %u.%u.\n",
                     tmpvalue >> 16, tmpvalue & 0xffff);
-            wined3d_settings.explicit_gl_version = TRUE;
             wined3d_settings.max_gl_version = tmpvalue;
         }
-        if ( !get_config_key( hkey, appkey, "UseGLSL", buffer, size) )
+        if (!get_config_key(hkey, appkey, "shader_backend", buffer, size))
         {
-            if (!strcmp(buffer,"disabled"))
+            if (!_strnicmp(buffer, "glsl", -1))
             {
-                ERR_(winediag)("The GLSL shader backend has been disabled. You get to keep all the pieces if it breaks.\n");
-                TRACE("Use of GL Shading Language disabled\n");
-                wined3d_settings.glslRequested = FALSE;
+                ERR_(winediag)("Using the GLSL shader backend.\n");
+                wined3d_settings.shader_backend = WINED3D_SHADER_BACKEND_GLSL;
             }
+            else if (!_strnicmp(buffer, "arb", -1))
+            {
+                ERR_(winediag)("Using the ARB shader backend.\n");
+                wined3d_settings.shader_backend = WINED3D_SHADER_BACKEND_ARB;
+            }
+            else if (!_strnicmp(buffer, "none", -1))
+            {
+                ERR_(winediag)("Disabling shader backends.\n");
+                wined3d_settings.shader_backend = WINED3D_SHADER_BACKEND_NONE;
+            }
+        }
+        if (wined3d_settings.shader_backend == WINED3D_SHADER_BACKEND_ARB
+                || wined3d_settings.shader_backend == WINED3D_SHADER_BACKEND_NONE)
+        {
+            ERR_(winediag)("The GLSL shader backend has been disabled. You get to keep all the pieces if it breaks.\n");
+            TRACE("Use of GL Shading Language disabled.\n");
         }
         if (!get_config_key(hkey, appkey, "OffscreenRenderingMode", buffer, size)
                 && !strcmp(buffer,"backbuffer"))
@@ -290,19 +360,14 @@ static BOOL wined3d_dll_init(HINSTANCE hInstDLL)
         if (!get_config_key_dword(hkey, appkey, "SampleCount", &wined3d_settings.sample_count))
             ERR_(winediag)("Forcing sample count to %u. This may not be compatible with all applications.\n",
                     wined3d_settings.sample_count);
-        if (!get_config_key(hkey, appkey, "StrictDrawOrdering", buffer, size)
-                && !strcmp(buffer,"enabled"))
-        {
-            ERR_(winediag)("\"StrictDrawOrdering\" is deprecated, please use \"csmt\" instead.\n");
-            TRACE("Enforcing strict draw ordering.\n");
-            wined3d_settings.strict_draw_ordering = TRUE;
-        }
         if (!get_config_key(hkey, appkey, "CheckFloatConstants", buffer, size)
                 && !strcmp(buffer, "enabled"))
         {
             TRACE("Checking relative addressing indices in float constants.\n");
             wined3d_settings.check_float_constants = TRUE;
         }
+        if (!get_config_key_dword(hkey, appkey, "strict_shader_math", &wined3d_settings.strict_shader_math))
+            ERR_(winediag)("Setting strict shader math to %#x.\n", wined3d_settings.strict_shader_math);
         if (!get_config_key_dword(hkey, appkey, "MaxShaderModelVS", &wined3d_settings.max_sm_vs))
             TRACE("Limiting VS shader model to %u.\n", wined3d_settings.max_sm_vs);
         if (!get_config_key_dword(hkey, appkey, "MaxShaderModelHS", &wined3d_settings.max_sm_hs))
@@ -315,18 +380,28 @@ static BOOL wined3d_dll_init(HINSTANCE hInstDLL)
             TRACE("Limiting PS shader model to %u.\n", wined3d_settings.max_sm_ps);
         if (!get_config_key_dword(hkey, appkey, "MaxShaderModelCS", &wined3d_settings.max_sm_cs))
             TRACE("Limiting CS shader model to %u.\n", wined3d_settings.max_sm_cs);
-        if (!get_config_key(hkey, appkey, "DirectDrawRenderer", buffer, size)
-                && !strcmp(buffer, "gdi"))
+        if (!get_config_key(hkey, appkey, "renderer", buffer, size))
         {
-            TRACE("Disabling 3D support.\n");
-            wined3d_settings.no_3d = TRUE;
+            if (!strcmp(buffer, "vulkan"))
+            {
+                ERR_(winediag)("Using the Vulkan renderer.\n");
+                wined3d_settings.renderer = WINED3D_RENDERER_VULKAN;
+            }
+            else if (!strcmp(buffer, "gl"))
+            {
+                ERR_(winediag)("Using the OpenGL renderer.\n");
+                wined3d_settings.renderer = WINED3D_RENDERER_OPENGL;
+            }
+            else if (!strcmp(buffer, "gdi") || !strcmp(buffer, "no3d"))
+            {
+                ERR_(winediag)("Disabling 3D support.\n");
+                wined3d_settings.renderer = WINED3D_RENDERER_NO3D;
+            }
         }
     }
 
     if (appkey) RegCloseKey( appkey );
     if (hkey) RegCloseKey( hkey );
-
-    wined3d_dxtn_init();
 
     return TRUE;
 }
@@ -335,6 +410,8 @@ static BOOL wined3d_dll_destroy(HINSTANCE hInstDLL)
 {
     DWORD wined3d_context_tls_idx = context_get_tls_idx();
     unsigned int i;
+
+    wined3d_spirv_shader_backend_cleanup();
 
     if (!TlsFree(wined3d_context_tls_idx))
     {
@@ -354,14 +431,21 @@ static BOOL wined3d_dll_destroy(HINSTANCE hInstDLL)
     }
     heap_free(wndproc_table.entries);
 
+    heap_free(swapchain_state_table.states);
+    for (i = 0; i < swapchain_state_table.hook_count; ++i)
+    {
+        WARN("Leftover swapchain state hook %p.\n", &swapchain_state_table.hooks[i]);
+        UnhookWindowsHookEx(swapchain_state_table.hooks[i].hook);
+    }
+    heap_free(swapchain_state_table.hooks);
+
     heap_free(wined3d_settings.logo);
     UnregisterClassA(WINED3D_OPENGL_WINDOW_CLASS_NAME, hInstDLL);
 
+    DeleteCriticalSection(&wined3d_command_cs);
+
     DeleteCriticalSection(&wined3d_wndproc_cs);
     DeleteCriticalSection(&wined3d_cs);
-
-    wined3d_dxtn_free();
-
     return TRUE;
 }
 
@@ -385,32 +469,83 @@ static void wined3d_wndproc_mutex_unlock(void)
     LeaveCriticalSection(&wined3d_wndproc_cs);
 }
 
-static struct wined3d_wndproc *wined3d_find_wndproc(HWND window)
+static struct wined3d_output * wined3d_get_output_from_window(const struct wined3d *wined3d,
+        HWND hwnd)
 {
-    unsigned int i;
+    unsigned int adapter_idx, output_idx;
+    struct wined3d_adapter *adapter;
+    MONITORINFOEXW monitor_info;
+    HMONITOR monitor;
 
-    for (i = 0; i < wndproc_table.count; ++i)
+    TRACE("wined3d %p, hwnd %p.\n", wined3d, hwnd);
+
+    monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+    monitor_info.cbSize = sizeof(monitor_info);
+    if (!GetMonitorInfoW(monitor, (MONITORINFO *)&monitor_info))
     {
-        if (wndproc_table.entries[i].window == window)
+        ERR("GetMonitorInfoW failed, error %#x.\n", GetLastError());
+        return NULL;
+    }
+
+    for (adapter_idx = 0; adapter_idx < wined3d->adapter_count; ++adapter_idx)
+    {
+        adapter = wined3d->adapters[adapter_idx];
+        for (output_idx = 0; output_idx < adapter->output_count; ++output_idx)
         {
-            return &wndproc_table.entries[i];
+            if (!lstrcmpiW(adapter->outputs[output_idx].device_name, monitor_info.szDevice))
+                return &adapter->outputs[output_idx];
         }
     }
 
     return NULL;
 }
 
+static struct wined3d_wndproc *wined3d_find_wndproc(HWND window, struct wined3d *wined3d)
+{
+    unsigned int i;
+
+    for (i = 0; i < wndproc_table.count; ++i)
+    {
+        struct wined3d_wndproc *entry = &wndproc_table.entries[i];
+
+        if (entry->window == window && entry->wined3d == wined3d)
+            return entry;
+    }
+
+    return NULL;
+}
+
+BOOL wined3d_filter_messages(HWND window, BOOL filter)
+{
+    struct wined3d_wndproc *entry;
+    BOOL ret;
+
+    wined3d_wndproc_mutex_lock();
+
+    if (!(entry = wined3d_find_wndproc(window, NULL)))
+    {
+        wined3d_wndproc_mutex_unlock();
+        return FALSE;
+    }
+
+    ret = entry->filter;
+    entry->filter = filter;
+
+    wined3d_wndproc_mutex_unlock();
+
+    return ret;
+}
+
 static LRESULT CALLBACK wined3d_wndproc(HWND window, UINT message, WPARAM wparam, LPARAM lparam)
 {
     struct wined3d_wndproc *entry;
     struct wined3d_device *device;
-    BOOL unicode;
+    BOOL unicode, filter;
     WNDPROC proc;
 
     wined3d_wndproc_mutex_lock();
-    entry = wined3d_find_wndproc(window);
 
-    if (!entry)
+    if (!(entry = wined3d_find_wndproc(window, NULL)))
     {
         wined3d_wndproc_mutex_unlock();
         ERR("Window %p is not registered with wined3d.\n", window);
@@ -419,26 +554,92 @@ static LRESULT CALLBACK wined3d_wndproc(HWND window, UINT message, WPARAM wparam
 
     device = entry->device;
     unicode = entry->unicode;
+    filter = entry->filter;
     proc = entry->proc;
     wined3d_wndproc_mutex_unlock();
 
     if (device)
+    {
+        if (filter && message != WM_DISPLAYCHANGE)
+        {
+            TRACE("Filtering message: window %p, message %#x, wparam %#lx, lparam %#lx.\n",
+                    window, message, wparam, lparam);
+
+            if (unicode)
+                return DefWindowProcW(window, message, wparam, lparam);
+            return DefWindowProcA(window, message, wparam, lparam);
+        }
+
         return device_process_message(device, window, unicode, message, wparam, lparam, proc);
+    }
     if (unicode)
         return CallWindowProcW(proc, window, message, wparam, lparam);
     return CallWindowProcA(proc, window, message, wparam, lparam);
 }
 
-BOOL wined3d_register_window(HWND window, struct wined3d_device *device)
+static LRESULT CALLBACK wined3d_hook_proc(int code, WPARAM wparam, LPARAM lparam)
+{
+    struct wined3d_swapchain_desc swapchain_desc;
+    struct wined3d_swapchain_state *state;
+    struct wined3d_wndproc *entry;
+    struct wined3d_output *output;
+    MSG *msg = (MSG *)lparam;
+    unsigned int i;
+
+    /* Handle Alt+Enter. */
+    if (code == HC_ACTION && msg->message == WM_SYSKEYDOWN
+            && msg->wParam == VK_RETURN && (msg->lParam & (KF_ALTDOWN << 16)))
+    {
+        wined3d_wndproc_mutex_lock();
+
+        for (i = 0; i < swapchain_state_table.state_count; ++i)
+        {
+            state = swapchain_state_table.states[i].state;
+
+            if (state->device_window != msg->hwnd)
+                continue;
+
+            if ((entry = wined3d_find_wndproc(msg->hwnd, state->wined3d))
+                    && (entry->flags & (WINED3D_REGISTER_WINDOW_NO_WINDOW_CHANGES
+                    | WINED3D_REGISTER_WINDOW_NO_ALT_ENTER)))
+                continue;
+
+            swapchain_desc = state->desc;
+            swapchain_desc.windowed = !swapchain_desc.windowed;
+            if (!(output = wined3d_get_output_from_window(state->wined3d, state->device_window)))
+            {
+                ERR("Failed to get output from window %p.\n", state->device_window);
+                break;
+            }
+            swapchain_desc.output = output;
+            wined3d_swapchain_state_set_fullscreen(state, &swapchain_desc, NULL);
+
+            wined3d_wndproc_mutex_unlock();
+
+            return 1;
+        }
+
+        wined3d_wndproc_mutex_unlock();
+    }
+
+    return CallNextHookEx(0, code, wparam, lparam);
+}
+
+BOOL CDECL wined3d_register_window(struct wined3d *wined3d, HWND window,
+        struct wined3d_device *device, unsigned int flags)
 {
     struct wined3d_wndproc *entry;
 
+    TRACE("wined3d %p, window %p, device %p, flags %#x.\n", wined3d, window, device, flags);
+
     wined3d_wndproc_mutex_lock();
 
-    if (wined3d_find_wndproc(window))
+    if ((entry = wined3d_find_wndproc(window, wined3d)))
     {
+        if (!wined3d)
+            WARN("Window %p is already registered with wined3d.\n", window);
+        entry->flags = flags;
         wined3d_wndproc_mutex_unlock();
-        WARN("Window %p is already registered with wined3d.\n", window);
         return TRUE;
     }
 
@@ -453,16 +654,48 @@ BOOL wined3d_register_window(HWND window, struct wined3d_device *device)
     entry = &wndproc_table.entries[wndproc_table.count++];
     entry->window = window;
     entry->unicode = IsWindowUnicode(window);
-    /* Set a window proc that matches the window. Some applications (e.g. NoX)
-     * replace the window proc after we've set ours, and expect to be able to
-     * call the previous one (ours) directly, without using CallWindowProc(). */
-    if (entry->unicode)
-        entry->proc = (WNDPROC)SetWindowLongPtrW(window, GWLP_WNDPROC, (LONG_PTR)wined3d_wndproc);
+    if (!wined3d)
+    {
+        /* Set a window proc that matches the window. Some applications (e.g.
+         * NoX) replace the window proc after we've set ours, and expect to be
+         * able to call the previous one (ours) directly, without using
+         * CallWindowProc(). */
+        if (entry->unicode)
+            entry->proc = (WNDPROC)SetWindowLongPtrW(window, GWLP_WNDPROC, (LONG_PTR)wined3d_wndproc);
+        else
+            entry->proc = (WNDPROC)SetWindowLongPtrA(window, GWLP_WNDPROC, (LONG_PTR)wined3d_wndproc);
+    }
     else
-        entry->proc = (WNDPROC)SetWindowLongPtrA(window, GWLP_WNDPROC, (LONG_PTR)wined3d_wndproc);
+    {
+        entry->proc = NULL;
+    }
     entry->device = device;
+    entry->wined3d = wined3d;
+    entry->flags = flags;
 
     wined3d_wndproc_mutex_unlock();
+
+    return TRUE;
+}
+
+static BOOL restore_wndproc(struct wined3d_wndproc *entry)
+{
+    LONG_PTR proc;
+
+    if (entry->unicode)
+    {
+        proc = GetWindowLongPtrW(entry->window, GWLP_WNDPROC);
+        if (proc != (LONG_PTR)wined3d_wndproc)
+            return FALSE;
+        SetWindowLongPtrW(entry->window, GWLP_WNDPROC, (LONG_PTR)entry->proc);
+    }
+    else
+    {
+        proc = GetWindowLongPtrA(entry->window, GWLP_WNDPROC);
+        if (proc != (LONG_PTR)wined3d_wndproc)
+            return FALSE;
+        SetWindowLongPtrA(entry->window, GWLP_WNDPROC, (LONG_PTR)entry->proc);
+    }
 
     return TRUE;
 }
@@ -470,44 +703,22 @@ BOOL wined3d_register_window(HWND window, struct wined3d_device *device)
 void wined3d_unregister_window(HWND window)
 {
     struct wined3d_wndproc *entry, *last;
-    LONG_PTR proc;
 
     wined3d_wndproc_mutex_lock();
 
-    if (!(entry = wined3d_find_wndproc(window)))
+    if (!(entry = wined3d_find_wndproc(window, NULL)))
     {
         wined3d_wndproc_mutex_unlock();
         ERR("Window %p is not registered with wined3d.\n", window);
         return;
     }
 
-    if (entry->unicode)
+    if (entry->proc && !restore_wndproc(entry))
     {
-        proc = GetWindowLongPtrW(window, GWLP_WNDPROC);
-        if (proc != (LONG_PTR)wined3d_wndproc)
-        {
-            entry->device = NULL;
-            wined3d_wndproc_mutex_unlock();
-            WARN("Not unregistering window %p, window proc %#lx doesn't match wined3d window proc %p.\n",
-                    window, proc, wined3d_wndproc);
-            return;
-        }
-
-        SetWindowLongPtrW(window, GWLP_WNDPROC, (LONG_PTR)entry->proc);
-    }
-    else
-    {
-        proc = GetWindowLongPtrA(window, GWLP_WNDPROC);
-        if (proc != (LONG_PTR)wined3d_wndproc)
-        {
-            entry->device = NULL;
-            wined3d_wndproc_mutex_unlock();
-            WARN("Not unregistering window %p, window proc %#lx doesn't match wined3d window proc %p.\n",
-                    window, proc, wined3d_wndproc);
-            return;
-        }
-
-        SetWindowLongPtrA(window, GWLP_WNDPROC, (LONG_PTR)entry->proc);
+        entry->device = NULL;
+        WARN("Not unregistering window %p, current window proc doesn't match wined3d window proc.\n", window);
+        wined3d_wndproc_mutex_unlock();
+        return;
     }
 
     last = &wndproc_table.entries[--wndproc_table.count];
@@ -516,9 +727,134 @@ void wined3d_unregister_window(HWND window)
     wined3d_wndproc_mutex_unlock();
 }
 
-void CDECL wined3d_strictdrawing_set(int value)
+void CDECL wined3d_unregister_windows(struct wined3d *wined3d)
 {
-    wined3d_settings.strict_draw_ordering = value;
+    struct wined3d_wndproc *entry, *last;
+    unsigned int i = 0;
+
+    TRACE("wined3d %p.\n", wined3d);
+
+    wined3d_wndproc_mutex_lock();
+
+    while (i < wndproc_table.count)
+    {
+        entry = &wndproc_table.entries[i];
+
+        if (entry->wined3d != wined3d)
+        {
+            ++i;
+            continue;
+        }
+
+        if (entry->proc && !restore_wndproc(entry))
+        {
+            entry->device = NULL;
+            WARN("Not unregistering window %p, current window proc doesn't match wined3d window proc.\n",
+                    entry->window);
+            ++i;
+            continue;
+        }
+
+        last = &wndproc_table.entries[--wndproc_table.count];
+        if (entry != last)
+            *entry = *last;
+        else
+            ++i;
+    }
+
+    wined3d_wndproc_mutex_unlock();
+}
+
+static struct wined3d_window_hook *wined3d_find_hook(DWORD thread_id)
+{
+    unsigned int i;
+
+    for (i = 0; i < swapchain_state_table.hook_count; ++i)
+    {
+        if (swapchain_state_table.hooks[i].thread_id == thread_id)
+            return &swapchain_state_table.hooks[i];
+    }
+
+    return NULL;
+}
+
+void wined3d_swapchain_state_register(struct wined3d_swapchain_state *state)
+{
+    struct wined3d_registered_swapchain_state *state_entry;
+    struct wined3d_window_hook *hook;
+
+    wined3d_wndproc_mutex_lock();
+
+    if (!wined3d_array_reserve((void **)&swapchain_state_table.states, &swapchain_state_table.states_size,
+            swapchain_state_table.state_count + 1, sizeof(*state_entry)))
+    {
+        wined3d_wndproc_mutex_unlock();
+        return;
+    }
+
+    state_entry = &swapchain_state_table.states[swapchain_state_table.state_count++];
+    state_entry->state = state;
+    state_entry->thread_id = GetWindowThreadProcessId(state->device_window, NULL);
+
+    if ((hook = wined3d_find_hook(state_entry->thread_id)))
+    {
+        ++hook->count;
+        wined3d_wndproc_mutex_unlock();
+        return;
+    }
+
+    if (!wined3d_array_reserve((void **)&swapchain_state_table.hooks, &swapchain_state_table.hooks_size,
+            swapchain_state_table.hook_count + 1, sizeof(*hook)))
+    {
+        --swapchain_state_table.state_count;
+        wined3d_wndproc_mutex_unlock();
+        return;
+    }
+
+    hook = &swapchain_state_table.hooks[swapchain_state_table.hook_count++];
+    hook->thread_id = state_entry->thread_id;
+    hook->hook = SetWindowsHookExW(WH_GETMESSAGE, wined3d_hook_proc, 0, hook->thread_id);
+    hook->count = 1;
+
+    wined3d_wndproc_mutex_unlock();
+}
+
+static void wined3d_swapchain_state_unregister(struct wined3d_swapchain_state *state)
+{
+    struct wined3d_registered_swapchain_state *state_entry, *last_state_entry;
+    struct wined3d_window_hook *hook, *last_hook;
+    unsigned int i;
+
+    wined3d_wndproc_mutex_lock();
+
+    for (i = 0; i < swapchain_state_table.state_count; ++i)
+    {
+        state_entry = &swapchain_state_table.states[i];
+
+        if (state_entry->state != state)
+            continue;
+
+        if ((hook = wined3d_find_hook(state_entry->thread_id)) && !--hook->count)
+        {
+            UnhookWindowsHookEx(hook->hook);
+            last_hook = &swapchain_state_table.hooks[--swapchain_state_table.hook_count];
+            if (hook != last_hook)
+                *hook = *last_hook;
+        }
+
+        last_state_entry = &swapchain_state_table.states[--swapchain_state_table.state_count];
+        if (state_entry != last_state_entry)
+            *state_entry = *last_state_entry;
+
+        break;
+    }
+
+    wined3d_wndproc_mutex_unlock();
+}
+
+void wined3d_swapchain_state_cleanup(struct wined3d_swapchain_state *state)
+{
+    wined3d_swapchain_state_unregister(state);
 }
 
 /* At process attach */
@@ -535,7 +871,7 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, void *reserved)
             break;
 
         case DLL_THREAD_DETACH:
-            if (!context_set_current(NULL))
+            if (!wined3d_context_gl_set_current(NULL))
             {
                 ERR("Failed to clear current context.\n");
             }

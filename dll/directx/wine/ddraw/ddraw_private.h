@@ -21,6 +21,7 @@
 
 #include <assert.h>
 #include <limits.h>
+#include <math.h>
 #define COBJMACROS
 #define NONAMELESSSTRUCT
 #define NONAMELESSUNION
@@ -57,14 +58,17 @@ struct FvfToDecl
 #define DDRAW_NO3D              0x00000008
 #define DDRAW_SCL_DDRAW1        0x00000010
 #define DDRAW_SCL_RECURSIVE     0x00000020
-#define DDRAW_GDI_FLIP          0x00000040
+#define DDRAW_SWAPPED           0x00000040
 
 #define DDRAW_STRIDE_ALIGNMENT  8
 
 #define DDRAW_WINED3D_FLAGS     (WINED3D_LEGACY_DEPTH_BIAS | WINED3D_VIDMEM_ACCOUNTING \
         | WINED3D_RESTORE_MODE_ON_ACTIVATE | WINED3D_FOCUS_MESSAGES | WINED3D_PIXEL_CENTER_INTEGER \
         | WINED3D_LEGACY_UNBOUND_RESOURCE_COLOR | WINED3D_NO_PRIMITIVE_RESTART \
-        | WINED3D_LEGACY_CUBEMAP_FILTERING | WINED3D_LIMIT_VIEWPORT)
+        | WINED3D_LEGACY_CUBEMAP_FILTERING)
+
+#define DDRAW_MAX_ACTIVE_LIGHTS 32
+#define DDRAW_MAX_TEXTURES 8
 
 enum ddraw_device_state
 {
@@ -90,14 +94,19 @@ struct ddraw
     LONG                    ref7, ref4, ref2, ref3, ref1, numIfaces;
 
     struct wined3d *wined3d;
+    struct wined3d_adapter *wined3d_adapter;
+    struct wined3d_output *wined3d_output;
     struct wined3d_device *wined3d_device;
+    struct wined3d_device_context *immediate_context;
     DWORD flags;
     LONG device_state;
 
     struct ddraw_surface *primary;
     RECT primary_lock;
     struct wined3d_texture *wined3d_frontbuffer;
+    struct wined3d_texture *gdi_surface;
     struct wined3d_swapchain *wined3d_swapchain;
+    struct wined3d_swapchain_state_parent state_parent;
     HWND swapchain_window;
 
     /* DirectDraw things, which are not handled by WineD3D */
@@ -123,6 +132,9 @@ struct ddraw
     /* FVF management */
     struct FvfToDecl       *decls;
     UINT                    numConvertedDecls, declArraySize;
+
+    struct wined3d_stateblock *state;
+    const struct wined3d_stateblock_state *stateblock_state;
 };
 
 #define DDRAW_WINDOW_CLASS_NAME "DirectDrawDeviceWnd"
@@ -144,6 +156,9 @@ void DDRAW_Convert_DDSCAPS_1_To_2(const DDSCAPS *pIn, DDSCAPS2 *pOut) DECLSPEC_H
 void DDRAW_Convert_DDDEVICEIDENTIFIER_2_To_1(const DDDEVICEIDENTIFIER2 *pIn, DDDEVICEIDENTIFIER *pOut) DECLSPEC_HIDDEN;
 struct wined3d_vertex_declaration *ddraw_find_decl(struct ddraw *ddraw, DWORD fvf) DECLSPEC_HIDDEN;
 
+#define DDRAW_SURFACE_LOCATION_DEFAULT 0x00000001
+#define DDRAW_SURFACE_LOCATION_DRAW    0x00000002
+
 struct ddraw_surface
 {
     /* IUnknown fields */
@@ -164,7 +179,9 @@ struct ddraw_surface
 
     /* Connections to other Objects */
     struct ddraw *ddraw;
+    unsigned int texture_location;
     struct wined3d_texture *wined3d_texture;
+    struct wined3d_texture *draw_texture;
     unsigned int sub_resource_idx;
     struct wined3d_rendertarget_view *wined3d_rtv;
     struct wined3d_private_store private_store;
@@ -185,8 +202,9 @@ struct ddraw_surface
     /* You can't traverse the tree upwards. Only a flag for Surface::Release because it's needed there,
      * but no pointer to prevent temptations to traverse it in the wrong direction.
      */
-    BOOL                    is_complex_root;
-    BOOL is_lost;
+    unsigned int is_complex_root : 1;
+    unsigned int is_lost : 1;
+    unsigned int sysmem_fallback : 1;
 
     /* Surface description, for GetAttachedSurface */
     DDSURFACEDESC2          surface_desc;
@@ -209,6 +227,8 @@ struct ddraw_texture
 
     struct ddraw_surface *root;
     struct wined3d_device *wined3d_device;
+
+    void *texture_memory;
 };
 
 HRESULT ddraw_surface_create(struct ddraw *ddraw, const DDSURFACEDESC2 *surface_desc,
@@ -218,7 +238,7 @@ void ddraw_surface_init(struct ddraw_surface *surface, struct ddraw *ddraw,
         struct wined3d_texture *wined3d_texture, unsigned int sub_resource_idx,
         const struct wined3d_parent_ops **parent_ops) DECLSPEC_HIDDEN;
 HRESULT ddraw_surface_update_frontbuffer(struct ddraw_surface *surface,
-        const RECT *rect, BOOL read) DECLSPEC_HIDDEN;
+        const RECT *rect, BOOL read, unsigned int swap_interval) DECLSPEC_HIDDEN;
 
 static inline struct ddraw_surface *impl_from_IDirect3DTexture(IDirect3DTexture *iface)
 {
@@ -303,10 +323,11 @@ struct d3d_device
     IUnknown IUnknown_inner;
     LONG ref;
     UINT version;
-    BOOL hw;
+    BOOL hardware_device;
 
     IUnknown *outer_unknown;
     struct wined3d_device *wined3d_device;
+    struct wined3d_device_context *immediate_context;
     struct ddraw *ddraw;
     IUnknown *rt_iface;
 
@@ -325,9 +346,9 @@ struct d3d_device
 
     /* Required to keep track which of two available texture blending modes in d3ddevice3 is used */
     BOOL legacyTextureBlending;
+    D3DTEXTUREBLEND texture_map_blend;
 
-    D3DMATRIX legacy_projection;
-    D3DMATRIX legacy_clipspace;
+    struct wined3d_matrix legacy_projection, legacy_clipspace;
 
     /* Light state */
     DWORD material;
@@ -346,6 +367,9 @@ struct d3d_device
     D3DMATRIXHANDLE          world, proj, view;
 
     struct wined3d_vec4 user_clip_planes[D3DMAXUSERCLIPPLANES];
+
+    struct wined3d_stateblock *recording, *state, *update_state;
+    const struct wined3d_stateblock_state *stateblock_state;
 };
 
 HRESULT d3d_device_create(struct ddraw *ddraw, const GUID *guid, struct ddraw_surface *target, IUnknown *rt_iface,
@@ -391,6 +415,7 @@ struct ddraw_clipper
 
 HRESULT ddraw_clipper_init(struct ddraw_clipper *clipper) DECLSPEC_HIDDEN;
 struct ddraw_clipper *unsafe_impl_from_IDirectDrawClipper(IDirectDrawClipper *iface) DECLSPEC_HIDDEN;
+BOOL ddraw_clipper_is_valid(const struct ddraw_clipper *clipper) DECLSPEC_HIDDEN;
 
 /*****************************************************************************
  * IDirectDrawPalette implementation structure
@@ -442,7 +467,7 @@ struct d3d_light
     D3DLIGHT2 light;
     D3DLIGHT7 light7;
 
-    DWORD dwLightIndex;
+    DWORD active_light_index;
 
     struct list entry;
 };
@@ -475,6 +500,13 @@ struct d3d_material
 void material_activate(struct d3d_material *material) DECLSPEC_HIDDEN;
 struct d3d_material *d3d_material_create(struct ddraw *ddraw) DECLSPEC_HIDDEN;
 
+enum ddraw_viewport_version
+{
+    DDRAW_VIEWPORT_VERSION_NONE,
+    DDRAW_VIEWPORT_VERSION_1,
+    DDRAW_VIEWPORT_VERSION_2,
+};
+
 /*****************************************************************************
  * IDirect3DViewport - Wraps to D3D7
  *****************************************************************************/
@@ -489,10 +521,10 @@ struct d3d_viewport
     /* If this viewport is active for one device, put the device here */
     struct d3d_device *active_device;
 
-    DWORD                     num_lights;
+    DWORD                     active_lights_count;
     DWORD                     map_lights;
 
-    int                       use_vp2;
+    enum ddraw_viewport_version version;
 
     union
     {
@@ -511,6 +543,7 @@ struct d3d_viewport *unsafe_impl_from_IDirect3DViewport(IDirect3DViewport *iface
 
 /* Helper functions */
 void viewport_activate(struct d3d_viewport *viewport, BOOL ignore_lights) DECLSPEC_HIDDEN;
+void viewport_deactivate(struct d3d_viewport *viewport) DECLSPEC_HIDDEN;
 void d3d_viewport_init(struct d3d_viewport *viewport, struct ddraw *ddraw) DECLSPEC_HIDDEN;
 
 /*****************************************************************************
@@ -544,7 +577,7 @@ struct d3d_execute_buffer *unsafe_impl_from_IDirect3DExecuteBuffer(IDirect3DExec
 
 /* The execute function */
 HRESULT d3d_execute_buffer_execute(struct d3d_execute_buffer *execute_buffer,
-        struct d3d_device *device, struct d3d_viewport *viewport) DECLSPEC_HIDDEN;
+        struct d3d_device *device) DECLSPEC_HIDDEN;
 
 /*****************************************************************************
  * IDirect3DVertexBuffer
@@ -597,7 +630,8 @@ void DDRAW_dump_cooperativelevel(DWORD cooplevel) DECLSPEC_HIDDEN;
 void DDSD_to_DDSD2(const DDSURFACEDESC *in, DDSURFACEDESC2 *out) DECLSPEC_HIDDEN;
 void DDSD2_to_DDSD(const DDSURFACEDESC2 *in, DDSURFACEDESC *out) DECLSPEC_HIDDEN;
 
-void multiply_matrix(D3DMATRIX *dst, const D3DMATRIX *src1, const D3DMATRIX *src2) DECLSPEC_HIDDEN;
+void multiply_matrix(struct wined3d_matrix *dst, const struct wined3d_matrix *src1,
+        const struct wined3d_matrix *src2) DECLSPEC_HIDDEN;
 
 static inline BOOL format_is_compressed(const DDPIXELFORMAT *format)
 {
@@ -612,6 +646,71 @@ static inline BOOL format_is_paletteindexed(const DDPIXELFORMAT *fmt)
             | DDPF_PALETTEINDEXED8 | DDPF_PALETTEINDEXEDTO8;
     return !!(fmt->dwFlags & flags);
 }
+
+static inline BOOL ddraw_surface_can_be_lost(const struct ddraw_surface *surface)
+{
+    DWORD caps = surface->surface_desc.ddsCaps.dwCaps;
+
+    /* Testing with DDCREATE_EMULATIONONLY showed that primary surfaces and Z buffers can
+     * be lost even if created with explicit DDCAPS_SYSTEMMEMORY. Textures can or cannot be lost
+     * depending on whether _SYSTEMMEMORY was given explicitly by the application. */
+    if (!(caps & DDSCAPS_SYSTEMMEMORY) || caps & (DDSCAPS_PRIMARYSURFACE | DDSCAPS_ZBUFFER))
+        return TRUE;
+
+    return surface->sysmem_fallback;
+}
+
+#define DDRAW_SURFACE_READ   0x00000001
+#define DDRAW_SURFACE_WRITE  0x00000002
+#define DDRAW_SURFACE_RW (DDRAW_SURFACE_READ | DDRAW_SURFACE_WRITE)
+
+static inline struct wined3d_texture *ddraw_surface_get_default_texture(struct ddraw_surface *surface, unsigned int flags)
+{
+    if (surface->draw_texture)
+    {
+        if (flags & DDRAW_SURFACE_READ && !(surface->texture_location & DDRAW_SURFACE_LOCATION_DEFAULT))
+        {
+            wined3d_device_context_copy_sub_resource_region(surface->ddraw->immediate_context,
+                    wined3d_texture_get_resource(surface->wined3d_texture), surface->sub_resource_idx, 0, 0, 0,
+                    wined3d_texture_get_resource(surface->draw_texture), surface->sub_resource_idx, NULL, 0);
+            surface->texture_location |= DDRAW_SURFACE_LOCATION_DEFAULT;
+        }
+
+        if (flags & DDRAW_SURFACE_WRITE)
+            surface->texture_location = DDRAW_SURFACE_LOCATION_DEFAULT;
+    }
+    return surface->wined3d_texture;
+}
+
+static inline struct wined3d_texture *ddraw_surface_get_draw_texture(struct ddraw_surface *surface, unsigned int flags)
+{
+    if (!surface->draw_texture)
+        return surface->wined3d_texture;
+
+    if (flags & DDRAW_SURFACE_READ && !(surface->texture_location & DDRAW_SURFACE_LOCATION_DRAW))
+    {
+        wined3d_device_context_copy_sub_resource_region(surface->ddraw->immediate_context,
+                wined3d_texture_get_resource(surface->draw_texture), surface->sub_resource_idx, 0, 0, 0,
+                wined3d_texture_get_resource(surface->wined3d_texture), surface->sub_resource_idx, NULL, 0);
+        surface->texture_location |= DDRAW_SURFACE_LOCATION_DRAW;
+    }
+
+    if (flags & DDRAW_SURFACE_WRITE)
+        surface->texture_location = DDRAW_SURFACE_LOCATION_DRAW;
+
+    return surface->draw_texture;
+}
+
+static inline struct wined3d_texture *ddraw_surface_get_any_texture(struct ddraw_surface *surface, unsigned int flags)
+{
+    if (surface->texture_location & DDRAW_SURFACE_LOCATION_DEFAULT)
+        return ddraw_surface_get_default_texture(surface, flags);
+
+    assert(surface->texture_location & DDRAW_SURFACE_LOCATION_DRAW);
+    return ddraw_surface_get_draw_texture(surface, flags);
+}
+
+void d3d_device_sync_surfaces(struct d3d_device *device) DECLSPEC_HIDDEN;
 
 /* Used for generic dumping */
 struct flag_info
@@ -647,5 +746,8 @@ struct member_info
 #define DD_STRUCT_COPY_BYSIZE(to,from) DD_STRUCT_COPY_BYSIZE_(to,from,(to)->dwSize,(from)->dwSize)
 
 HRESULT hr_ddraw_from_wined3d(HRESULT hr) DECLSPEC_HIDDEN;
+
+void viewport_alloc_active_light_index(struct d3d_light *light) DECLSPEC_HIDDEN;
+void viewport_free_active_light_index(struct d3d_light *light) DECLSPEC_HIDDEN;
 
 #endif

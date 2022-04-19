@@ -21,9 +21,6 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include "config.h"
-#include "wine/port.h"
-
 #define DDRAW_INIT_GUID
 #include "ddraw_private.h"
 #include "rpcproxy.h"
@@ -60,32 +57,58 @@ static void ddraw_enumerate_secondary_devices(struct wined3d *wined3d, LPDDENUMC
                                               void *context)
 {
     struct wined3d_adapter_identifier adapter_id;
+    struct wined3d_adapter *wined3d_adapter;
     struct wined3d_output_desc output_desc;
+    struct wined3d_output *wined3d_output;
+    unsigned int interface_count = 0;
+    unsigned int adapter_idx = 0;
+    unsigned int output_idx;
     BOOL cont_enum = TRUE;
-    HRESULT hr = S_OK;
-    UINT adapter = 0;
+    HRESULT hr;
 
-    for (adapter = 0; SUCCEEDED(hr) && cont_enum; adapter++)
+    while (cont_enum && (wined3d_adapter = wined3d_get_adapter(wined3d, adapter_idx)))
     {
-        char DriverName[512] = "", DriverDescription[512] = "";
+        char device_name[512] = "", description[512] = "";
 
         /* The Battle.net System Checker expects the GetAdapterIdentifier DeviceName to match the
          * Driver Name, so obtain the DeviceName and GUID from D3D. */
         memset(&adapter_id, 0x0, sizeof(adapter_id));
-        adapter_id.device_name = DriverName;
-        adapter_id.device_name_size = sizeof(DriverName);
-        adapter_id.description = DriverDescription;
-        adapter_id.description_size = sizeof(DriverDescription);
+        adapter_id.description = description;
+        adapter_id.description_size = sizeof(description);
+
         wined3d_mutex_lock();
-        if (SUCCEEDED(hr = wined3d_get_adapter_identifier(wined3d, adapter, 0x0, &adapter_id)))
-            hr = wined3d_get_output_desc(wined3d, adapter, &output_desc);
-        wined3d_mutex_unlock();
-        if (SUCCEEDED(hr))
+        if (FAILED(hr = wined3d_adapter_get_identifier(wined3d_adapter, 0x0, &adapter_id)))
         {
-            TRACE("Interface %d: %s\n", adapter, wine_dbgstr_guid(&adapter_id.device_identifier));
-            cont_enum = callback(&adapter_id.device_identifier, adapter_id.description,
-                    adapter_id.device_name, context, output_desc.monitor);
+            WARN("Failed to get adapter identifier, hr %#x.\n", hr);
+            wined3d_mutex_unlock();
+            break;
         }
+        wined3d_mutex_unlock();
+
+        for (output_idx = 0; cont_enum && (wined3d_output = wined3d_adapter_get_output(
+                wined3d_adapter, output_idx)); ++output_idx)
+        {
+            wined3d_mutex_lock();
+            if (FAILED(hr = wined3d_output_get_desc(wined3d_output, &output_desc)))
+            {
+                WARN("Failed to get output description, hr %#x.\n", hr);
+                wined3d_mutex_unlock();
+                break;
+            }
+            wined3d_mutex_unlock();
+
+            TRACE("Interface %u: %s\n", interface_count++,
+                    wine_dbgstr_guid(&adapter_id.device_identifier));
+            WideCharToMultiByte(CP_ACP, 0, output_desc.device_name, -1, device_name,
+                    sizeof(device_name), NULL, NULL);
+            cont_enum = callback(&adapter_id.device_identifier, adapter_id.description,
+                    device_name, context, output_desc.monitor);
+        }
+
+        if (FAILED(hr))
+            break;
+
+        ++adapter_idx;
     }
 }
 
@@ -256,62 +279,52 @@ HRESULT WINAPI GetSurfaceFromDC(HDC dc, IDirectDrawSurface4 **surface, HDC *devi
  *  E_OUTOFMEMORY if some allocation failed
  *
  ***********************************************************************/
-static HRESULT
-DDRAW_Create(const GUID *guid,
-             void **DD,
-             IUnknown *UnkOuter,
-             REFIID iid)
+static HRESULT DDRAW_Create(const GUID *guid, void **out, IUnknown *outer_unknown, REFIID iid)
 {
     enum wined3d_device_type device_type;
     struct ddraw *ddraw;
-    HRESULT hr;
     DWORD flags = 0;
+    HRESULT hr;
 
     TRACE("driver_guid %s, ddraw %p, outer_unknown %p, interface_iid %s.\n",
-            debugstr_guid(guid), DD, UnkOuter, debugstr_guid(iid));
+            debugstr_guid(guid), out, outer_unknown, debugstr_guid(iid));
 
-    *DD = NULL;
+    *out = NULL;
 
     if (guid == (GUID *) DDCREATE_EMULATIONONLY)
     {
-        /* Use the reference device id. This doesn't actually change anything,
-         * WineD3D always uses OpenGL for D3D rendering. One could make it request
-         * indirect rendering
-         */
         device_type = WINED3D_DEVICE_TYPE_REF;
     }
-    else if(guid == (GUID *) DDCREATE_HARDWAREONLY)
+    else if (guid == (GUID *) DDCREATE_HARDWAREONLY)
     {
         device_type = WINED3D_DEVICE_TYPE_HAL;
     }
     else
     {
-        device_type = 0;
+        device_type = WINED3D_DEVICE_TYPE_HAL;
     }
 
     /* DDraw doesn't support aggregation, according to msdn */
-    if (UnkOuter != NULL)
+    if (outer_unknown != NULL)
         return CLASS_E_NOAGGREGATION;
 
     if (!IsEqualGUID(iid, &IID_IDirectDraw7))
         flags = WINED3D_LEGACY_FFP_LIGHTING;
 
-    /* DirectDraw creation comes here */
     if (!(ddraw = heap_alloc_zero(sizeof(*ddraw))))
     {
-        ERR("Out of memory when creating DirectDraw\n");
+        ERR("Out of memory when creating DirectDraw.\n");
         return E_OUTOFMEMORY;
     }
 
-    hr = ddraw_init(ddraw, flags, device_type);
-    if (FAILED(hr))
+    if (FAILED(hr = ddraw_init(ddraw, flags, device_type)))
     {
         WARN("Failed to initialize ddraw object, hr %#x.\n", hr);
         heap_free(ddraw);
         return hr;
     }
 
-    hr = IDirectDraw7_QueryInterface(&ddraw->IDirectDraw7_iface, iid, DD);
+    hr = IDirectDraw7_QueryInterface(&ddraw->IDirectDraw7_iface, iid, out);
     IDirectDraw7_Release(&ddraw->IDirectDraw7_iface);
     if (SUCCEEDED(hr))
         list_add_head(&global_ddraw_list, &ddraw->ddraw_list_entry);
@@ -765,31 +778,6 @@ HRESULT WINAPI DllGetClassObject(REFCLSID rclsid, REFIID riid, void **out)
 }
 
 
-/*******************************************************************************
- * DllCanUnloadNow [DDRAW.@]  Determines whether the DLL is in use.
- *
- * RETURNS
- *    Success: S_OK
- *    Failure: S_FALSE
- */
-HRESULT WINAPI DllCanUnloadNow(void)
-{
-    TRACE("\n");
-
-    return S_FALSE;
-}
-
-
-HRESULT WINAPI DllRegisterServer(void)
-{
-    return __wine_register_resources( instance );
-}
-
-HRESULT WINAPI DllUnregisterServer(void)
-{
-    return __wine_unregister_resources( instance );
-}
-
 /***********************************************************************
  * DllMain (DDRAW.0)
  *
@@ -865,9 +853,7 @@ BOOL WINAPI DllMain(HINSTANCE inst, DWORD reason, void *reserved)
          * an application would unload ddraw from the WM_DESTROY handler for
          * that window, it would return to unmapped memory and die. Apparently
          * this is supposed to work on Windows. */
-
-        /* ReactOS r61844: Comment out usage of GET_MODULE_HANDLE_EX_FLAG_PIN because it doesn't work */
-        if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS /*| GET_MODULE_HANDLE_EX_FLAG_PIN*/,
+        if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN,
                 (const WCHAR *)&ddraw_self, &ddraw_self))
             ERR("Failed to get own module handle.\n");
 
