@@ -125,7 +125,7 @@ dll/win32/msrle32             # Synced to WineStaging-4.18
 dll/win32/mssign32            # Synced to WineStaging-4.18
 dll/win32/mssip32             # Synced to WineStaging-4.18
 dll/win32/mstask              # Synced to WineStaging-3.3
-dll/win32/msvcrt20            # Out of sync
+dll/win32/msvcrt20            # Synced to Wine-7.7 with ReactOS specific patches
 dll/win32/msvcrt40            # Out of sync
 dll/win32/msvfw32             # Synced to WineStaging-4.18
 dll/win32/msvidc32            # Synced to WineStaging-4.0

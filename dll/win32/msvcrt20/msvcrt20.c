@@ -18,6 +18,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
+#ifdef __REACTOS__
+
 #define WIN32_NO_STATUS
 
 #include <stdio.h>
@@ -144,6 +146,13 @@ DllMain(PVOID hinstDll, ULONG dwReason, PVOID reserved)
 
     return TRUE;
 }
+#endif
+
+#include <stdarg.h>
+#include <math.h>
+#include <process.h>
+
+#include "windef.h"
 
 /* LIBRARY EXPORTS ************************************************************/
 
@@ -167,6 +176,14 @@ void CDECL MSVCRT20__wgetmainargs( int *argc, WCHAR** *wargv, WCHAR** *wenvp,
                                    int expand_wildcards, int new_mode )
 {
     __wgetmainargs( argc, wargv, wenvp, expand_wildcards, &new_mode );
+}
+
+/*********************************************************************
+ *      _matherr (MSVCRT20.@)
+ */
+int CDECL MSVCRT20__matherr(struct _exception *e)
+{
+    return 0;
 }
 
 /* EOF */
