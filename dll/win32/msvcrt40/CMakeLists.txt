@@ -14,7 +14,6 @@ add_definitions(
 
 list(APPEND SOURCE
     msvcrt40.c
-    stubs.c
     ${CMAKE_CURRENT_BINARY_DIR}/msvcrt40_stubs.c
     ${CMAKE_CURRENT_BINARY_DIR}/msvcrt40.def)
 
@@ -28,5 +27,5 @@ if(MSVC)
     target_link_options(msvcrt40 PRIVATE /ignore:4102)
 endif()
 
-add_importlibs(msvcrt40 kernel32 ntdll)
+add_importlibs(msvcrt40 kernel32 ntdll msvcrt)
 add_cd_file(TARGET msvcrt40 DESTINATION reactos/system32 FOR all)
