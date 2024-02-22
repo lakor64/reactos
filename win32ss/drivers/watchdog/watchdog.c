@@ -1,5 +1,6 @@
 
 #include <ntifs.h>
+#include <watchdog.h>
 
 #define NDEBUG
 #include <debug.h>
@@ -14,30 +15,32 @@ DriverEntry (
     return STATUS_SUCCESS;
 }
 
-VOID
+PWATCHDOG
 NTAPI
 WdAllocateWatchdog(
-    PVOID p1,
-    PVOID p2,
-    ULONG p3)
+	_In_ PDEVICE_OBJECT DeviceObject,
+	_In_ UINT32 Type,
+	_In_ ULONG AllocationTag)
 {
     UNIMPLEMENTED;
+    return NULL;
 }
 
-VOID
+PWATCHDOG
 NTAPI
 WdAllocateDeferredWatchdog(
-    PVOID p1,
-    PVOID p2,
-    ULONG p3)
+	_In_ PDEVICE_OBJECT DeviceObject,
+	_In_ UINT32 Type,
+	_In_ ULONG AllocationTag)
 {
     UNIMPLEMENTED;
+    return NULL;
 }
 
 VOID
 NTAPI
 WdFreeWatchdog(
-    PVOID p1)
+    _In_ PWATCHDOG Watchdog)
 {
     UNIMPLEMENTED;
 }
@@ -45,7 +48,7 @@ WdFreeWatchdog(
 VOID
 NTAPI
 WdFreeDeferredWatchdog(
-    PVOID p1)
+    _In_ PWATCHDOG Watchdog)
 {
     UNIMPLEMENTED;
 }
@@ -53,9 +56,9 @@ WdFreeDeferredWatchdog(
 VOID
 NTAPI
 WdStartWatch(
-    PVOID p1,
-    LARGE_INTEGER p2,
-    ULONG p3)
+	_In_ PWATCHDOG Watchdog,
+	_In_ LARGE_INTEGER DueTime,
+	_In_ PKDPC Dpc)
 {
     UNIMPLEMENTED;
 }
@@ -63,9 +66,9 @@ WdStartWatch(
 VOID
 NTAPI
 WdStartDeferredWatch(
-    PVOID p1,
-    PVOID p2,
-    ULONG p3)
+	_In_ PWATCHDOG Watchdog,
+	_In_ PRKDPC Dpc,
+	_In_ ULONG DueTime)
 {
     UNIMPLEMENTED;
 }
@@ -73,8 +76,8 @@ WdStartDeferredWatch(
 VOID
 NTAPI
 WdStopWatch(
-    PVOID p1,
-    ULONG p2)
+	_In_ PWATCHDOG Watchdog,
+	_In_ BOOLEAN CheckForStartCount)
 {
     UNIMPLEMENTED;
 }
@@ -82,7 +85,7 @@ WdStopWatch(
 VOID
 NTAPI
 WdStopDeferredWatch(
-    PVOID p1)
+	_In_ PWATCHDOG pWatchdog)
 {
     UNIMPLEMENTED;
 }
@@ -90,7 +93,7 @@ WdStopDeferredWatch(
 VOID
 NTAPI
 WdSuspendWatch(
-    PVOID p1)
+	_In_ PWATCHDOG Watchdog)
 {
     UNIMPLEMENTED;
 }
@@ -98,7 +101,7 @@ WdSuspendWatch(
 VOID
 FASTCALL
 WdSuspendDeferredWatch(
-    PVOID p1)
+	_In_ PWATCHDOG Watchdog)
 {
     UNIMPLEMENTED;
 }
@@ -106,8 +109,8 @@ WdSuspendDeferredWatch(
 VOID
 NTAPI
 WdResumeWatch(
-    PVOID p1,
-    PVOID p2)
+	_In_ PWATCHDOG Watchdog,
+	_In_ BOOLEAN CheckForResumeCount)
 {
     UNIMPLEMENTED;
 }
@@ -115,8 +118,8 @@ WdResumeWatch(
 VOID
 FASTCALL
 WdResumeDeferredWatch(
-    PVOID p1,
-    PVOID p2)
+    _In_ PWATCHDOG Watchdog,
+    _In_ BOOLEAN ResetSuspensionCount)
 {
     UNIMPLEMENTED;
 }
@@ -124,7 +127,7 @@ WdResumeDeferredWatch(
 VOID
 NTAPI
 WdResetWatch(
-    PVOID p1)
+    _In_ PWATCHDOG Watchdog)
 {
     UNIMPLEMENTED;
 }
@@ -132,7 +135,7 @@ WdResetWatch(
 VOID
 FASTCALL
 WdResetDeferredWatch(
-    PVOID p1)
+    _In_ PWATCHDOG Watchdog)
 {
     UNIMPLEMENTED;
 }
@@ -140,7 +143,7 @@ WdResetDeferredWatch(
 VOID
 FASTCALL
 WdEnterMonitoredSection(
-    PVOID p1)
+    _In_ PWATCHDOG Watchdog)
 {
     UNIMPLEMENTED;
 }
@@ -148,16 +151,17 @@ WdEnterMonitoredSection(
 VOID
 FASTCALL
 WdExitMonitoredSection(
-    PVOID p1)
+    _In_ PWATCHDOG Watchdog)
 {
     UNIMPLEMENTED;
 }
 
+#if (NTDDI_VERSION >= NTDDI_WS03)
 VOID
 NTAPI
 WdAttachContext(
-    PVOID p1,
-    PVOID p2)
+    _In_ PWATCHDOG Watchdog,
+    _In_ SIZE_T ContextSize)
 {
     UNIMPLEMENTED;
 }
@@ -165,40 +169,44 @@ WdAttachContext(
 VOID
 NTAPI
 WdDetachContext(
-    PVOID p1)
+    _In_ PWATCHDOG Watchdog)
 {
     UNIMPLEMENTED;
 }
+#endif
 
-VOID
+PDEVICE_OBJECT
 NTAPI
 WdGetDeviceObject(
-    PVOID p1)
+    _In_ PWATCHDOG Watchdog)
 {
     UNIMPLEMENTED;
+    return NULL;
 }
 
-VOID
+PDEVICE_OBJECT
 NTAPI
 WdGetLowestDeviceObject(
-    PVOID p1)
+    _In_ PWATCHDOG Watchdog)
 {
     UNIMPLEMENTED;
+    return NULL;
 }
 
-VOID
+ULONG
 NTAPI
 WdGetLastEvent(
-    PVOID p1)
+    _In_ PWATCHDOG Watchdog)
 {
     UNIMPLEMENTED;
+    return 0;
 }
 
 VOID
 NTAPI
 WdCompleteEvent(
-    PVOID p1,
-    PVOID p2)
+	_In_ PWATCHDOG Watchdog,
+	_In_ PVOID ThreadObject)
 {
     UNIMPLEMENTED;
 }
@@ -206,7 +214,7 @@ WdCompleteEvent(
 VOID
 NTAPI
 WdReferenceObject(
-    PVOID p1)
+    _In_ PWATCHDOG Watchdog)
 {
     UNIMPLEMENTED;
 }
@@ -214,7 +222,7 @@ WdReferenceObject(
 VOID
 NTAPI
 WdDereferenceObject(
-    PVOID p1)
+    _In_ PWATCHDOG Watchdog)
 {
     UNIMPLEMENTED;
 }
@@ -222,16 +230,141 @@ WdDereferenceObject(
 BOOLEAN
 NTAPI
 WdMadeAnyProgress(
-    PVOID p1)
+    _In_ PWATCHDOG Watchdog)
 {
     UNIMPLEMENTED;
     return FALSE;
 }
 
+#if (NTDDI_VERSION == NTDDI_WINXP)
+VOID
+NTAPI
+WdDdiWatchdogDpcCallback(
+	_In_ PKDPC Dpc,
+	_In_opt_ PVOID DeferredContext,
+	_In_opt_ PVOID SystemArgument1,
+	_In_opt_ PVOID SystemArgument2
+)
+{
+    UNIMPLEMENTED;
+}
+#endif
 
+#if (NTDDI_VERSION >= NTDDI_VISTA)
 
+#if (NTDDI_VERSION >= NTDDI_WIN8)
+NTSTATUS
+NTAPI
+SMgrNotifySessionChange(
+	_In_ WATCHDOG_SESSION_CHANGE_TYPE Type,
+	_In_opt_ PVIDEO_WIN32K_CALLOUT Callout
+)
+{
+    UNIMPLEMENTED;
+    return STATUS_INVALID_PARAMETER;
+}
 
+NTSTATUS
+NTAPI
+SMgrRegisterSessionChangeCallout(
+	_In_ PWATCHDOG_SESSION_CHANGE_CALLOUT Callout
+)
+{
+    UNIMPLEMENTED;
+    return STATUS_INVALID_PARAMETER;
+}
 
+NTSTATUS
+NTAPI
+SMgrUnregisterSessionChangeCallout(
+	_In_ PWATCHDOG_SESSION_CHANGE_CALLOUT Callout
+)
+{
+    UNIMPLEMENTED;
+    return STATUS_INVALID_PARAMETER;   
+}
 
+NTSTATUS
+NTAPI
+SMgrGdiCallout(
+	_In_ PVIDEO_WIN32K_CALLBACK_PARAMS CallbackParams,
+	_In_ UINT64 TargetSessionId,
+	_In_ BOOLEAN ProcessNow,
+	_In_opt_ PWATCHDOG_CALLOUT_STATUS_CALLBACK StatusCallback,
+	_In_opt_ void* UserData,
+	_In_opt_ PVIDEO_SCENARIO_CONTEXT* ScenarioContext
+)
+{
+    UNIMPLEMENTED;
+    return STATUS_INVALID_PARAMETER;   
+}
+#else
+NTSTATUS
+NTAPI
+SMgrNotifySessionChange(
+	_In_ UINT32 Type
+)
+{
+    UNIMPLEMENTED;
+    return STATUS_INVALID_PARAMETER;   
+}
 
+NTSTATUS
+NTAPI
+SMgrRegisterGdiCallout(
+	_In_ PVIDEO_WIN32K_CALLOUT Callout
+)
+{
+    UNIMPLEMENTED;
+    return STATUS_INVALID_PARAMETER;   
+}
 
+NTSTATUS
+NTAPI
+SMgrRegisterSessionStartCallout(
+	_In_ PWATCHDOG_SESSION_START_CALLOUT Callout
+)
+{
+    UNIMPLEMENTED;
+    return STATUS_INVALID_PARAMETER;   
+}
+
+NTSTATUS
+NTAPI
+SMgrUnregisterSessionStartCallout(
+	_In_ PWATCHDOG_SESSION_START_CALLOUT Callout
+)
+{
+    UNIMPLEMENTED;
+    return STATUS_INVALID_PARAMETER;   
+}
+
+NTSTATUS
+NTAPI
+SMgrGdiCallout(
+	_In_ PVIDEO_WIN32K_CALLBACKS_PARAMS CallbackParams,
+	_In_ BOOLEAN ProcessAll,
+	_In_ BOOLEAN ProcessNow
+)
+{
+    UNIMPLEMENTED;
+    return STATUS_INVALID_PARAMETER;   
+}
+#endif
+
+HANDLE
+NTAPI
+SMgrGetActiveSessionProcess()
+{
+    UNIMPLEMENTED;
+    return NULL;   
+}
+
+ULONG
+NTAPI
+SMgrGetNumberOfSessions()
+{
+    UNIMPLEMENTED;
+    return 0;   
+}
+#endif /* #if (NTDDI_VERSION >= NTDDI_VISTA) */

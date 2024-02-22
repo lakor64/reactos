@@ -13,6 +13,7 @@ add_subdirectory(ntos_io)
 add_subdirectory(ntos_mm)
 add_subdirectory(ntos_po)
 add_subdirectory(tcpip)
+add_subdirectory(watchdog)
 
 list(APPEND COMMON_SOURCE
     example/GuardedMemory.c
@@ -168,6 +169,7 @@ list(APPEND KMTEST_SOURCE
     ntos_mm/NtCreateSection_user.c
     ntos_po/PoIrp_user.c
     tcpip/TcpIp_user.c
+    watchdog/watchdog_user.c
     ${COMMON_SOURCE}
 
     kmtest/kmtest.rc)
@@ -199,7 +201,8 @@ add_dependencies(kmtest_drivers
     poirp_drv
     tcpip_drv
     cccopyread_drv
-    ccmapdata_drv)
+    ccmapdata_drv
+    watchdog_drv)
 
 add_custom_target(kmtest_all)
 add_dependencies(kmtest_all kmtest_drivers kmtest)
