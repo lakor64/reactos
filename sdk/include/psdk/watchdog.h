@@ -28,19 +28,19 @@ enum WATCHDOG_EVENT_TYPE
 	WATCHDOG_EVENT_NONE					= 0x0,
 
 	/**
-	 * This event is used when the timer was cancelled by the user (via WdStopWatch)
+	 * This event is fired when the watchdog is created
 	*/
-	WATCHDOG_EVENT_CANCELLED_BY_USER 	= 0x1,
+	WATCHDOG_EVENT_CREATED 				= 0x1,
 
 	/**
-	 * This event is used when the timer has expired
+	 * This event is fired when the watchdog is expired
 	*/
 	WATCHDOG_EVENT_EXPIRED 				= 0x2,
 
 	/**
-	 * This event is used when the timer has been restarted
+	 * This event is used when a thread has deattached from the deferred one
 	*/
-	WATCHDOG_EVENT_RESTARTED 			= 0x3,
+	WATCHDOG_EVENT_DEATTACHED_THREAD 	= 0x3,
 };
 
 /**
