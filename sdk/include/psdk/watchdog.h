@@ -17,6 +17,8 @@
 typedef struct _WATCHDOG WATCHDOG;
 typedef WATCHDOG* PWATCHDOG;
 
+#define WATCHDOG_NORMAL_MINIMUM_100NS_DUE_TIME 0xC0000001
+
 /**
  * Types of watchdog events
 */

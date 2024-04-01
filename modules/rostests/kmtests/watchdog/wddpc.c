@@ -7,8 +7,9 @@
 
 #include <kmt_test.h>
 #include "wddpc.h"
+#include <watchdog.h>
 
-void TestDpcRoutine(
+void NTAPI TestDpcRoutine(
   struct _KDPC  *Dpc,
   PVOID DeferredContext,
   PVOID SystemArgument1,
@@ -19,12 +20,12 @@ void TestDpcRoutine(
 
     // check if the millis timer is ok
     LARGE_INTEGER sCur;
-    KeQueryTickCount(&sCur);
-    ok_bool_true((sCur.QuadPart - ctx->sStartTime.QuadPart) > WATCHDOG_DEFAULT_TIME_DIFF, "Watchdog timer difference");
+    KeQuerySystemTime(&sCur);
+    ok_bool_true((sCur.QuadPart - ctx->sStartTime.QuadPart) >= WATCHDOG_NORMAL_MINIMUM_100NS_DUE_TIME, "Watchdog timer difference");
 
     KeSetEvent(&ctx->pkEvent, 0, FALSE);
 
-    trace("DPC called!!!");
+    trace("DPC called!!! TIME: %llu START_TIME: %llu\n", sCur.QuadPart, ctx->sStartTime.QuadPart);
 }
 
 PDPCCTX TestSetWdContextAndDpc(void)
@@ -34,10 +35,10 @@ PDPCCTX TestSetWdContextAndDpc(void)
     return NULL;
 
   KeQuerySystemTime(&ctx->sDueTime);
-  ctx->sDueTime.LowPart += WATCHDOG_DEFAULT_TIME_DIFF*1000;
+  ctx->sDueTime.QuadPart += WATCHDOG_100NS_TIME;
 
   KeInitializeEvent(&ctx->pkEvent, NotificationEvent, FALSE);
-  KeInitializeDpc(&ctx->dpc, (PKDEFERRED_ROUTINE)&TestDpcRoutine, ctx);
+  KeInitializeDpc(&ctx->dpc, &TestDpcRoutine, ctx);
 
   KeQueryTickCount(&ctx->sStartTime);
 

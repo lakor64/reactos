@@ -23,7 +23,7 @@ TestNormalWd(
     PWATCHDOG pWd = NULL;
     PDPCCTX ctx = NULL;
     LARGE_INTEGER pTimeout;
-    LARGE_INTEGER ticks;
+    LARGE_INTEGER sysTime;
     PDEVICE_OBJECT wdObj;
     NTSTATUS s = STATUS_ABANDONED;
     ULONG lastEvt;
@@ -34,7 +34,7 @@ TestNormalWd(
     UNREFERENCED_PARAMETER(OutLength);
     
     pWd = WdAllocateWatchdog(DeviceObject, 
-        WATCHDOG_MONITOR_KERNEL_TIME,
+        WATCHDOG_MONITOR_USER_TIME,
         WATCHDOG_TEST_TAG);
     
     ok_bool_true(pWd != NULL, "Watchdog normal allocation");
@@ -51,37 +51,43 @@ TestNormalWd(
     WdStartWatch(pWd, ctx->sDueTime, &ctx->dpc);
 
     pTimeout.QuadPart = 0;
-    KeQueryTickCount(&ticks);
-    while ((ticks.QuadPart - ctx->sStartTime.QuadPart) <= (WATCHDOG_DEFAULT_TIME_DIFF * 3))
+    KeQueryTickCount(&sysTime);
+    //while ((sysTime.QuadPart - ctx->sStartTime.QuadPart) <= WATCHDOG_NORMAL_MINIMUM_100NS_DUE_TIME_CHECK)
+    while (1)
     {
         s = KeWaitForSingleObject(&ctx->pkEvent, Executive, KernelMode, FALSE, &pTimeout);
         if (s == STATUS_SUCCESS)
             break;
-        KeQueryTickCount(&ticks);
+       KeQuerySystemTime(&sysTime);
     }
 
     ok_eq_ulong(s, STATUS_SUCCESS);
+    lastEvt = WdGetLastEvent(pWd);
+    ok_eq_ulong(lastEvt, WATCHDOG_EVENT_EXPIRED);
     KeClearEvent(&ctx->pkEvent);
 
-    KeQueryTickCount(&ticks);
-    while ((ticks.QuadPart - ctx->sStartTime.QuadPart) <= (WATCHDOG_DEFAULT_TIME_DIFF * 3))
+    KeQuerySystemTime(&sysTime);
+    while ((sysTime.QuadPart - ctx->sStartTime.QuadPart) <= WATCHDOG_NORMAL_MINIMUM_100NS_DUE_TIME_CHECK)
     {
         // we cannot directly call "KeWaitForSingleObject" as that pauses the thread time
         s = KeWaitForSingleObject(&ctx->pkEvent, Executive, KernelMode, FALSE, &pTimeout);
         if (s == STATUS_SUCCESS)
             break;
-        KeQueryTickCount(&ticks);
+        KeQuerySystemTime(&sysTime);
     }
     ok_eq_ulong(s, STATUS_SUCCESS);
+
+    lastEvt = WdGetLastEvent(pWd);
+    ok_eq_ulong(lastEvt, WATCHDOG_EVENT_EXPIRED);
     KeClearEvent(&ctx->pkEvent);
 
     WdSuspendWatch(pWd);
 
-    KeQueryTickCount(&ticks);
-    while ((ticks.QuadPart - ctx->sStartTime.QuadPart) <= (WATCHDOG_DEFAULT_TIME_DIFF * 6))
+    KeQuerySystemTime(&sysTime);
+    while ((sysTime.QuadPart - ctx->sStartTime.QuadPart) <= WATCHDOG_NORMAL_MINIMUM_100NS_DUE_TIME_CHECK)
     {
         s = KeWaitForSingleObject(&ctx->pkEvent, Executive, KernelMode, FALSE, &pTimeout);
-        KeQueryTickCount(&ticks);
+        KeQuerySystemTime(&sysTime);
     }
 
     ok_eq_ulong(s, STATUS_TIMEOUT);

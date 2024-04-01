@@ -7,8 +7,10 @@
 
 #pragma once
 
-#define WATCHDOG_TEST_TAG ((ULONG)('dWeK'))
-#define WATCHDOG_DEFAULT_TIME_DIFF (100*10000)
+#define WATCHDOG_TEST_TAG ((ULONG)('tseT'))
+#define WATCHDOG_100NS_TIME 300000 // 30ms
+#define WATCHDOG_100NS_TIME_CHECK 600000 // 60ms
+#define WATCHDOG_NORMAL_MINIMUM_100NS_DUE_TIME_CHECK 0xC0100001
 
 typedef struct DpcCtx
 {
@@ -18,7 +20,7 @@ typedef struct DpcCtx
     LARGE_INTEGER sDueTime;
 } DPCCTX, *PDPCCTX;
 
-extern void TestDpcRoutine(
+extern void NTAPI TestDpcRoutine(
   struct _KDPC  *Dpc,
   PVOID DeferredContext,
   PVOID SystemArgument1,
